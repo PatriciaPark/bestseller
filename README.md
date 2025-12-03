@@ -114,11 +114,16 @@ npm run ios      # iOS### 3. 배치 크롤러 실행 (선택사항)
 
 주기적으로 최신 베스트셀러 데이터를 수집하려면:
 
+크롤링 결과는 `backend/json_results/`에 JSON 파일로 저장되며, 서버는 이 파일을 우선적으로 사용합니다.
 cd backend/scrappers
 node aladinScrapper.js    # 한국 (알라딘)
 node kyoboScrapper.js     # 한국 (교보문고)
-node amazonScrapper.js    # 미국/프랑스
-node taiwanScrapper.js    # 대만크롤링 결과는 `backend/json_results/`에 JSON 파일로 저장되며, 서버는 이 파일을 우선적으로 사용합니다.
+node usScrapper.js        # 미국
+node japanScrapper.js     #
+node ukScrapper.js        #
+node chinaScrapper.js     #
+node taiwanScrapper.js    # 대만
+node franceScrapper.js    # 프랑스
 
 ---
 

@@ -1,5 +1,5 @@
 // BookDetail.js - 통합 상세 화면 (모든 국가 지원)
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 import { useBookmark } from './BookmarkContext';
 import { CloseIcon, StarIcon, ShareIcon, ExternalLinkIcon } from './components/IconButton';
 import apiConfig from './config/api';
+import { useLanguage } from './LanguageContext';
 
 // 국가별 설정
 const COUNTRY_CONFIG = {
@@ -52,12 +53,22 @@ export default function BookDetail({ route, navigation }) {
   const { book } = route.params;
   const country = book.country || 'US';
   const config = COUNTRY_CONFIG[country] || COUNTRY_CONFIG.US;
+  const { columnHeaders } = useLanguage();
   
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('contents');
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const { isBookmarked, toggleBookmark } = useBookmark();
+
+  const tabHeaderMap = useMemo(
+    () => ({
+      contents: columnHeaders[4] || '',
+      author: columnHeaders[3] || '',
+      other: columnHeaders[5] || '',
+    }),
+    [columnHeaders]
+  );
 
   // 책 상세 정보 가져오기
   useEffect(() => {
@@ -137,10 +148,13 @@ export default function BookDetail({ route, navigation }) {
       // 데이터가 전혀 없는 경우
       setLoading(false);
     }
-  }, [book.link, book.description, book.contents, book.authorInfo, book.publisherReview, book.plot, config.apiEndpoint]);
+  }, [book.link, book.description, book.contents, book.authorInfo, book.other, book.plot, config.apiEndpoint]);
 
   // 탭 제목을 데이터에 따라 동적으로 결정
   const getTabTitle = (tab) => {
+    if (tabHeaderMap[tab]) {
+      return tabHeaderMap[tab];
+    }
     switch (tab) {
       case 'contents':
         if (details?.tableOfContents) return 'Table of Contents';
@@ -150,10 +164,9 @@ export default function BookDetail({ route, navigation }) {
       case 'author':
         if (details?.authorInfo) return 'About the Author';
         return 'Author Info';
-      case 'review':
-        if (details?.publisherReview) return 'Publisher Review';
-        if (details?.review) return 'Review';
-        return 'Review';
+      case 'other':
+        if (details?.other) return 'Other Information';
+        return 'other';
       default:
         return '';
     }
@@ -207,13 +220,13 @@ export default function BookDetail({ route, navigation }) {
             )}
           </View>
         );
-      case 'review':
+      case 'other':
         return (
           <View style={styles.tabContent}>
-            <Text style={styles.tabContentTitle}>{getTabTitle('review')}</Text>
+            <Text style={styles.tabContentTitle}>{getTabTitle('other')}</Text>
             <Text style={styles.tabContentText}>
-              {details?.publisherReview || details?.review || details?.contents || details?.description || 
-                'Publisher review information is not available.'}
+              {details?.other || details?.contents || details?.description || 
+                'Other information is not available.'}
             </Text>
           </View>
         );
@@ -334,11 +347,11 @@ export default function BookDetail({ route, navigation }) {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'review' && styles.activeTab]}
-            onPress={() => setActiveTab('review')}
+            style={[styles.tab, activeTab === 'other' && styles.activeTab]}
+            onPress={() => setActiveTab('other')}
           >
-            <Text style={[styles.tabText, activeTab === 'review' && styles.activeTabText]}>
-              {getTabTitle('review')}
+            <Text style={[styles.tabText, activeTab === 'other' && styles.activeTabText]}>
+              {getTabTitle('other')}
             </Text>
           </TouchableOpacity>
         </View>
