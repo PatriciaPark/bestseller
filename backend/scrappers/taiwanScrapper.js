@@ -18,7 +18,7 @@ async function fetchPageBooks(browser) {
 
         const items = document.querySelectorAll("ul.clearfix li");
         for (let i = 0; i < items.length; i++) {
-            if (books.length >= 20) break; // stop after 20 books
+            if (books.length >= 30) break;
 
             const li = items[i];
             const title = li.querySelector("div.type02_bd-a h4 a")?.innerText.trim() || "";

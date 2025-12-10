@@ -36,15 +36,6 @@ const INDEX_TO_COUNTRY_LABEL = COUNTRY_TABS.reduce((acc, tab) => {
   return acc;
 }, {});
 
-const LANGUAGE_INDEX_TO_LABEL_COLUMN = {
-  0: 0, // Korean
-  1: 1, // English
-  2: 2, // Japanese
-  3: 3, // Chinese
-  4: 4, // Taiwanese
-  5: 5, // French
-};
-
 const COUNTRY_INDEX_TO_LABEL_COLUMN = {
   0: 0, // Korea -> Korean
   1: 1, // USA -> English
@@ -65,7 +56,7 @@ export default function MainScreen({ navigation }) {
     setLanguage,
     userLanguage,
     filteredData,
-    languageLabels,
+    originalLangs,
     loading,
     error,
     fetchSheets,
@@ -97,11 +88,11 @@ export default function MainScreen({ navigation }) {
   const originalLanguageIndex = COUNTRY_INDEX_TO_LABEL_COLUMN[country] ?? 1;
   
   const originalLabel = useMemo(() => {
-    if (languageLabels[userLanguage]) {
-      return languageLabels[userLanguage];
+    if (originalLangs[userLanguage]) {
+      return originalLangs[userLanguage];
     }
     return 'Original';
-  }, [userLanguage, languageLabels]);
+  }, [userLanguage, originalLangs]);
 
   const setCountryByLabel = label => {
     const nextIndex = COUNTRY_LABEL_TO_INDEX[label];

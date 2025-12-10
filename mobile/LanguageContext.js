@@ -39,8 +39,6 @@ const fetchSheet = async url => {
   return parseTSV(text);
 };
 
-
-
 export const LanguageProvider = ({ children }) => {
   const [userLanguage, setUserLanguage] = useState(0);
   const [language, setLanguage] = useState(0);
@@ -63,12 +61,9 @@ export const LanguageProvider = ({ children }) => {
       try {
         const rows = await fetchSheet(TRANSLATION_URL);
         setTranslations(rows);
-        const labelsRow = rows[18] ?? [];
-        const normalizedLabels = [...labelsRow];
-        while (normalizedLabels.length < 6) {
-          normalizedLabels.push('');
-        }
-        setLanguageLabels(normalizedLabels);
+
+        const labelsRow = rows[22] ?? [];
+        setLanguageLabels(labelsRow);
       } catch (err) {
         console.error('Failed to load translations', err);
       }
@@ -99,7 +94,7 @@ export const LanguageProvider = ({ children }) => {
     if (!data.length) return;
 
     const blockIndex = language;
-    const startIndex = 2 + blockIndex * 5;
+    const startIndex = 3 + blockIndex * 5;
 
     const rawHeaderRow = data[1] ?? [];
     const headerSlice = rawHeaderRow.slice(startIndex, startIndex + 5);
