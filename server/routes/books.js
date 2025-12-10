@@ -370,25 +370,20 @@ router.get('/jp-books', async (req, res) => {
   }
 });
 
-/**
- * 스페인 책 목록 (El Corte Inglés)
- */
 router.get('/es-books', async (req, res) => {
   try {
     // 캐시 확인
     if (await cacheExists('es')) {
-      const books = await getBooksFromCache('es');
+      const books = await getBooksFromCache('us');
       if (books.length > 0) {
         console.log(`✅ 캐시된 데이터 사용 (ES): ${books.length}권`);
         return res.json({ books });
       }
     }
 
-    // 실시간 크롤링
+    // 실시간 크롤링 (기존 로직)
     console.log('📘 실시간 크롤링 시작 (ES)...');
-    const url =
-      'https://www.elcorteingles.es/mas-vendidos/libros/skus.department::0065/';
-
+    const url = 'https://www.amazon.es/-/en/gp/bestsellers/books';
     const browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
@@ -396,74 +391,37 @@ router.get('/es-books', async (req, res) => {
     const page = await browser.newPage();
 
     await page.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
     );
 
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 40000 });
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
     await new Promise(resolve => setTimeout(resolve, 3000));
 
-    // 스크롤하여 이미지 로드
-    await page.evaluate(() => {
-      window.scrollTo(0, document.body.scrollHeight / 2);
-    });
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
     const books = await page.evaluate(() => {
-      const items = Array.from(
-        document.querySelectorAll(
-          'section[aria-labelledby*="product_preview_title"]',
-        ),
-      );
-      const results = [];
-
-      items.slice(0, 20).forEach((el, idx) => {
-        // 제목
-        const titleEl = el.querySelector('.product_preview-brand--text');
+      const items = Array.from(document.querySelectorAll('div[data-asin]'));
+      return items.slice(0, 20).map((el, idx) => {
+        const titleEl =
+          el.querySelector('._cDEzb_p13n-sc-css-line-clamp-1_1Fn1y') ||
+          el.querySelector('.p13n-sc-truncate') ||
+          el.querySelector('div._cDEzb_p13n-sc-css-line-clamp-3_g3dy1');
         const title = titleEl ? titleEl.innerText.trim() : `Book ${idx + 1}`;
 
-        // 저자
-        const authorEl = el.querySelector('h2.product_preview-title');
-        const author = authorEl
-          ? authorEl.innerText.trim()
-          : 'Autor desconocido';
+        const authorEl =
+          el.querySelector('._cDEzb_p13n-sc-css-line-clamp-1_EWgCb') ||
+          el.querySelector('.a-size-small.a-link-child') ||
+          el.querySelector('a.a-size-small') ||
+          el.querySelector('span.a-size-small');
+        const author = authorEl ? authorEl.innerText.trim() : 'Unknown Author';
 
-        // 이미지
-        const imgEl = el.querySelector('img[data-src], img[src]');
-        let image = '';
-        if (imgEl) {
-          image =
-            imgEl.getAttribute('data-src') || imgEl.getAttribute('src') || '';
-          if (image.startsWith('//')) {
-            image = 'https:' + image;
-          }
-        }
+        const imgEl = el.querySelector('img');
+        const image = imgEl ? imgEl.src : '';
 
-        // 링크
-        const linkEl = el.querySelector('a[href*="ItemBean"]');
-        let link = '';
-        if (linkEl) {
-          link = linkEl.getAttribute('href') || '';
-          if (link && !link.startsWith('http')) {
-            link = 'https://www.elcorteingles.es' + link;
-          }
-        }
+        const linkEl = el.querySelector('a');
+        const href = linkEl ? linkEl.getAttribute('href') : '';
+        const link = href ? 'https://www.amazon.com' + href : '';
 
-        // 출판사 (optional)
-        const publisherEl = el.querySelector('.product_preview-info');
-        const publisher = publisherEl ? publisherEl.innerText.trim() : '';
-
-        if (title && image) {
-          results.push({
-            title,
-            author,
-            publisher,
-            image,
-            link,
-          });
-        }
+        return { title, author, image, link };
       });
-
-      return results;
     });
 
     await browser.close();

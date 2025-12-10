@@ -825,10 +825,6 @@ router.get('/fr-book-detail', async (req, res) => {
     });
   }
 });
-
-/**
- * 스페인 책 상세 정보 (El Corte Inglés)
- */
 router.get('/es-book-detail', async (req, res) => {
   try {
     const { url } = req.query;
@@ -837,116 +833,128 @@ router.get('/es-book-detail', async (req, res) => {
       return res.status(400).json({ error: 'URL이 필요합니다' });
     }
 
-    console.log('📘 스페인 책 상세 정보 요청:', url);
+    console.log('📘 상세 정보 요청:', url);
 
     const browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-blink-features=AutomationControlled',
+      ],
     });
     const page = await browser.newPage();
+
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', {
+        get: () => false,
+      });
+    });
 
     await page.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     );
 
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 40000 });
-    await new Promise(resolve => setTimeout(resolve, 3000));
 
-    // 스크롤하여 동적 콘텐츠 로드
     await page.evaluate(() => {
       window.scrollTo(0, document.body.scrollHeight / 2);
     });
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // 추가 스크롤
     await page.evaluate(() => {
       window.scrollTo(0, document.body.scrollHeight);
     });
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
     const bookDetail = await page.evaluate(() => {
       let description = '';
-      let characteristics = '';
+
+      const expanderButtons = document.querySelectorAll(
+        '[data-a-expander-name="book_description_expander"]',
+      );
+      expanderButtons.forEach(btn => {
+        if (btn.click) btn.click();
+      });
+
+      const bookDescDiv = document.querySelector(
+        '#bookDescription_feature_div',
+      );
+      if (bookDescDiv) {
+        const expanderContent = bookDescDiv.querySelector(
+          '.a-expander-content',
+        );
+        if (expanderContent && expanderContent.innerText.trim().length > 50) {
+          description = expanderContent.innerText.trim();
+        }
+
+        if (!description) {
+          const spans = bookDescDiv.querySelectorAll('span');
+          for (let span of spans) {
+            if (span.innerText && span.innerText.trim().length > 50) {
+              description = span.innerText.trim();
+              break;
+            }
+          }
+        }
+      }
+
+      let authorInfo = '';
+
+      const editorialDiv = document.querySelector(
+        '#editorialReviews_feature_div',
+      );
+      if (editorialDiv) {
+        const sections = editorialDiv.querySelectorAll(
+          '.a-section.a-spacing-small.a-padding-small',
+        );
+
+        for (let section of sections) {
+          const text = section.innerText.trim();
+          if (text.length > 100) {
+            authorInfo = text;
+            break;
+          }
+        }
+
+        if (!authorInfo) {
+          const text = editorialDiv.innerText.trim();
+          if (text.length > 100) {
+            authorInfo = text;
+          }
+        }
+      }
+
       let publisher = '';
+      let publishDate = '';
 
-      // 책 소개 (Description) 찾기
-      // "Características" 섹션에서 찾기
-      const caracteristicasSection =
-        document.querySelector('div.product_detail');
-      if (caracteristicasSection) {
-        const allBlocks = caracteristicasSection.querySelectorAll(
-          'dl.block__container',
-        );
+      const detailBullets = document.querySelectorAll(
+        '#detailBullets_feature_div li, ' +
+          '#detailBulletsWrapper_feature_div li, ' +
+          '.detail-bullet-list li',
+      );
 
-        for (const block of allBlocks) {
-          const text = block.innerText?.trim() || '';
-          // 긴 텍스트 블록이 책 소개일 가능성이 높음
-          if (
-            text.length > 200 &&
-            !text.includes('ISBN') &&
-            !text.includes('Dimensiones') &&
-            !text.includes('páginas')
-          ) {
-            description = text;
-            break;
+      detailBullets.forEach(li => {
+        const text = li.innerText || '';
+        if (text.includes('Publisher') || text.includes('출판')) {
+          const parts = text.split(':');
+          if (parts.length > 1) {
+            publisher = parts[1].trim();
           }
         }
-      }
-
-      // Características 전체 텍스트 가져오기
-      const caracteristicasDiv = document.querySelector('div.product_detail');
-      if (caracteristicasDiv) {
-        const titleDiv = caracteristicasDiv.querySelector(
-          'div.product_detail-title',
-        );
-        if (titleDiv && titleDiv.innerText.includes('Características')) {
-          characteristics = caracteristicasDiv.innerText?.trim() || '';
-        }
-      }
-
-      // Editorial (출판사)
-      const publisherMatch = characteristics.match(/Editorial[:\s]+([^\n]+)/i);
-      if (publisherMatch) {
-        publisher = publisherMatch[1].trim();
-      }
-
-      // "EL LIBRO MÁS ESPERADO DEL AÑO" 같은 소개 텍스트 찾기
-      if (!description) {
-        const allParagraphs = document.querySelectorAll('p');
-        for (const p of allParagraphs) {
-          const text = p.innerText?.trim() || '';
-          if (
-            text.length > 100 &&
-            (text.includes('libro') ||
-              text.includes('memorias') ||
-              text.includes('historia'))
-          ) {
-            description = text;
-            break;
+        if (text.includes('Publication date') || text.includes('발행일')) {
+          const parts = text.split(':');
+          if (parts.length > 1) {
+            publishDate = parts[1].trim();
           }
         }
-      }
-
-      // block__container에서 긴 텍스트 찾기
-      if (!description) {
-        const allBlocks = document.querySelectorAll('dl.block__container');
-        for (const block of allBlocks) {
-          const text = block.innerText?.trim() || '';
-          if (
-            text.length > 150 &&
-            !text.includes('ISBN') &&
-            !text.includes('Dimensiones')
-          ) {
-            description = text;
-            break;
-          }
-        }
-      }
+      });
 
       return {
-        description, // 책 소개
-        characteristics, // Características 전체
-        publisher, // 출판사
+        description,
+        authorInfo,
+        publisher,
+        publishDate,
       };
     });
 
@@ -957,7 +965,7 @@ router.get('/es-book-detail', async (req, res) => {
   } catch (err) {
     console.error('❌ 스페인 책 상세 정보 크롤링 실패:', err);
     res.status(500).json({
-      error: '스페인 상세 정보 크롤링 실패',
+      error: '상세 정보 크롤링 실패',
       message: err.message,
     });
   }
