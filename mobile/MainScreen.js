@@ -39,6 +39,9 @@ const translations = {
   french: {
     bestSellers: 'Meilleures ventes', // Row 20, Column F
   },
+  spanish: {
+    bestSellers: 'Superventas',
+  },
 };
 
 const countryTranslations = {
@@ -50,6 +53,7 @@ const countryTranslations = {
     CHN: '중국', // Row 6, Column A
     TPE: '대만', // Row 7, Column A
     FRA: '프랑스', // Row 8, Column A
+    ESP: '스페인',
   },
   japanese: {
     JPN: '日本', // Row 4, Column C
@@ -59,6 +63,7 @@ const countryTranslations = {
     TPE: '台湾', // Row 7, Column C
     GBR: '英国', // Row 5, Column C
     FRA: '仏国', // Row 8, Column C
+    ESP: 'スペイン',
   },
   chinese: {
     CHN: '中国', // Row 6, Column D
@@ -68,6 +73,7 @@ const countryTranslations = {
     KOR: '韩国', // Row 2, Column D
     GBR: '英国', // Row 5, Column D
     FRA: '法国', // Row 8, Column D
+    ESP: '西班牙',
   },
   traditionalChinese: {
     TPE: '台灣', // Row 7, Column E
@@ -77,6 +83,7 @@ const countryTranslations = {
     KOR: '韓國', // Row 2, Column E
     GBR: '英國', // Row 5, Column E
     FRA: '法國', // Row 8, Column E
+    ESP: '西班牙',
   },
   french: {
     FRA: 'France', // Row 8, Column F
@@ -86,6 +93,7 @@ const countryTranslations = {
     JPN: 'Japon', // Row 4, Column F
     CHN: 'Chine', // Row 6, Column F
     TPE: 'Taïwan', // Row 7, Column F
+    ESP: 'Espagne',
   },
   english: {
     USA: 'USA',
@@ -95,6 +103,17 @@ const countryTranslations = {
     JPN: 'JPN',
     CHN: 'CHN',
     TPE: 'TPE',
+    ESP: 'ESP',
+  },
+  spanish: {
+    USA: 'USA',
+    GBR: 'UK',
+    FRA: 'Francia',
+    KOR: 'Corea',
+    JPN: 'Japón',
+    CHN: 'China',
+    TPE: 'Taiwán',
+    ESP: 'España',
   },
 };
 
@@ -120,12 +139,12 @@ export default function MainScreen({ navigation }) {
       }
     };
     loadAppLanguage();
-    
+
     // 화면이 포커스될 때마다 언어 설정 다시 불러오기
     const unsubscribe = navigation.addListener('focus', () => {
       loadAppLanguage();
     });
-    
+
     return unsubscribe;
   }, [navigation]);
 
@@ -152,8 +171,10 @@ export default function MainScreen({ navigation }) {
         } else if (activeCountryTab === 'CHN') {
           // 중국 데이터가 있다면 추가
           url = apiConfig.endpoints.twBooks; // 임시로 대만 URL 사용
+        } else if (activeCountryTab === 'ESP') {
+          url = apiConfig.endpoints.esBooks;
         }
-        
+
         const res = await fetch(url);
         const data = await res.json();
         setBooks(data.books || []);
@@ -177,6 +198,7 @@ export default function MainScreen({ navigation }) {
       if (activeCountryTab === 'FRA') return 'FrDetail';
       if (activeCountryTab === 'GBR') return 'UkDetail';
       if (activeCountryTab === 'CHN') return 'TwDetail'; // 임시로 대만 디테일 사용
+      if (activeCountryTab === 'ESP') return 'EsDetail';
       return 'UsDetail';
     };
 
@@ -188,6 +210,7 @@ export default function MainScreen({ navigation }) {
       if (activeCountryTab === 'FRA') return 'FR';
       if (activeCountryTab === 'GBR') return 'UK';
       if (activeCountryTab === 'CHN') return 'CN';
+      if (activeCountryTab === 'ESP') return 'ES';
       return 'US';
     };
 
@@ -216,7 +239,7 @@ export default function MainScreen({ navigation }) {
         <View style={styles.rankContainer}>
           <Text style={styles.rank}>{index + 1}</Text>
         </View>
-        
+
         {item.image ? (
           <Image source={{ uri: item.image }} style={styles.bookImage} />
         ) : (
@@ -224,7 +247,7 @@ export default function MainScreen({ navigation }) {
             <Text style={styles.placeholderText}>No Image</Text>
           </View>
         )}
-        
+
         <View style={styles.bookInfo}>
           <Text style={styles.bookTitle} numberOfLines={2}>
             {item.title}
@@ -243,10 +266,10 @@ export default function MainScreen({ navigation }) {
             </Text>
           )}
         </View>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.bookmarkIcon}
-          onPress={(e) => {
+          onPress={e => {
             e.stopPropagation();
             const bookData = {
               title: item.title,
@@ -265,10 +288,10 @@ export default function MainScreen({ navigation }) {
             toggleBookmark(bookData);
           }}
         >
-          <Icon 
-            name={isBookmarked(item.title) ? "star" : "star-outline"} 
-            size={24} 
-            color={isBookmarked(item.title) ? "#FFD700" : "#999"} 
+          <Icon
+            name={isBookmarked(item.title) ? 'star' : 'star-outline'}
+            size={24}
+            color={isBookmarked(item.title) ? '#FFD700' : '#999'}
           />
         </TouchableOpacity>
       </TouchableOpacity>
@@ -292,43 +315,51 @@ export default function MainScreen({ navigation }) {
           <Text style={styles.headerTitle}>
             {(() => {
               const languageMap = {
-                'Korean': 'korean',
-                'English': 'english',
-                'Japanese': 'japanese',
-                'Chinese': 'chinese',
+                Korean: 'korean',
+                English: 'english',
+                Japanese: 'japanese',
+                Chinese: 'chinese',
                 'Traditional Chinese': 'traditionalChinese',
-                'French': 'french',
+                French: 'french',
+                spanish: 'spanish',
               };
               const langKey = languageMap[appLanguage] || 'english';
-              return translations[langKey]?.bestSellers || translations.english.bestSellers;
+              return (
+                translations[langKey]?.bestSellers ||
+                translations.english.bestSellers
+              );
             })()}
           </Text>
           <View style={styles.languageToggle}>
             <TouchableOpacity
               style={[
                 styles.languageOption,
-                language === 'korean' && styles.languageOptionActive
+                language === 'korean' && styles.languageOptionActive,
               ]}
               onPress={() => setLanguage('korean')}
             >
-              <Text style={[
-                styles.languageText,
-                language === 'korean' && styles.languageTextActive
-              ]}>
+              <Text
+                style={[
+                  styles.languageText,
+                  language === 'korean' && styles.languageTextActive,
+                ]}
+              >
                 한국어
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.languageOption,
-                language === 'original' && styles.languageOptionActive
+                language === 'original' && styles.languageOptionActive,
               ]}
               onPress={() => setLanguage('original')}
             >
-              <Text style={[
-                styles.languageText,
-                language === 'original' && styles.languageTextActive
-              ]}>
+              <Text
+                style={[
+                  styles.languageText,
+                  language === 'original' && styles.languageTextActive,
+                ]}
+              >
                 Original
               </Text>
             </TouchableOpacity>
@@ -337,8 +368,8 @@ export default function MainScreen({ navigation }) {
 
         {/* 국가 선택 탭 */}
         <View style={styles.tabContainerWrapper}>
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.tabContainer}
           >
@@ -346,41 +377,115 @@ export default function MainScreen({ navigation }) {
               // 언어에 따른 국가 순서 및 번역 가져오기
               const getCountryOrder = () => {
                 const languageMap = {
-                  'Korean': 'korean',
-                  'English': 'english',
-                  'Japanese': 'japanese',
-                  'Chinese': 'chinese',
+                  Korean: 'korean',
+                  English: 'english',
+                  Japanese: 'japanese',
+                  Chinese: 'chinese',
                   'Traditional Chinese': 'traditionalChinese',
-                  'French': 'french',
+                  French: 'french',
+                  spanish: 'spanish',
                 };
                 const langKey = languageMap[appLanguage] || 'english';
-                const translations = countryTranslations[langKey] || countryTranslations.english;
-                
+                const translations =
+                  countryTranslations[langKey] || countryTranslations.english;
+
                 // 언어별 국가 순서
                 const orders = {
-                  korean: ['KOR', 'USA', 'JPN', 'GBR', 'CHN', 'TPE', 'FRA'],
-                  japanese: ['JPN', 'USA', 'KOR', 'CHN', 'TPE', 'GBR', 'FRA'],
-                  chinese: ['CHN', 'TPE', 'USA', 'JPN', 'KOR', 'GBR', 'FRA'],
-                  traditionalChinese: ['TPE', 'CHN', 'USA', 'JPN', 'KOR', 'GBR', 'FRA'],
-                  french: ['FRA', 'USA', 'GBR', 'KOR', 'JPN', 'CHN', 'TPE'],
-                  english: ['USA', 'GBR', 'FRA', 'KOR', 'JPN', 'CHN', 'TPE'],
+                  korean: [
+                    'KOR',
+                    'USA',
+                    'JPN',
+                    'GBR',
+                    'CHN',
+                    'TPE',
+                    'FRA',
+                    'ESP',
+                  ],
+                  japanese: [
+                    'JPN',
+                    'USA',
+                    'KOR',
+                    'CHN',
+                    'TPE',
+                    'GBR',
+                    'FRA',
+                    'ESP',
+                  ],
+                  chinese: [
+                    'CHN',
+                    'TPE',
+                    'USA',
+                    'JPN',
+                    'KOR',
+                    'GBR',
+                    'FRA',
+                    'ESP',
+                  ],
+                  traditionalChinese: [
+                    'TPE',
+                    'CHN',
+                    'USA',
+                    'JPN',
+                    'KOR',
+                    'GBR',
+                    'FRA',
+                  ],
+                  french: [
+                    'FRA',
+                    'USA',
+                    'GBR',
+                    'KOR',
+                    'JPN',
+                    'CHN',
+                    'TPE',
+                    'ESP',
+                  ],
+                  english: [
+                    'USA',
+                    'GBR',
+                    'FRA',
+                    'KOR',
+                    'JPN',
+                    'CHN',
+                    'TPE',
+                    'ESP',
+                  ],
+                  spanish: [
+                    'ESP',
+                    'FRA',
+                    'USA',
+                    'GBR',
+                    'KOR',
+                    'JPN',
+                    'CHN',
+                    'TPE',
+                  ],
                 };
-                
+
                 return {
                   order: orders[langKey] || orders.english,
                   translations,
                 };
               };
-              
+
               const { order, translations } = getCountryOrder();
-              
-              return order.map((countryCode) => (
+
+              return order.map(countryCode => (
                 <TouchableOpacity
                   key={countryCode}
-                  style={[styles.countryTab, activeCountryTab === countryCode && styles.activeCountryTab]}
+                  style={[
+                    styles.countryTab,
+                    activeCountryTab === countryCode && styles.activeCountryTab,
+                  ]}
                   onPress={() => setActiveCountryTab(countryCode)}
                 >
-                  <Text style={[styles.countryTabText, activeCountryTab === countryCode && styles.activeCountryTabText]}>
+                  <Text
+                    style={[
+                      styles.countryTabText,
+                      activeCountryTab === countryCode &&
+                        styles.activeCountryTabText,
+                    ]}
+                  >
                     {translations[countryCode] || countryCode}
                   </Text>
                 </TouchableOpacity>
@@ -415,22 +520,25 @@ export default function MainScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.contentContainer}>
-        {renderContent()}
-      </View>
-      
+      <View style={styles.contentContainer}>{renderContent()}</View>
+
       {/* 하단 네비게이션 */}
       <View style={styles.bottomNav}>
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => setActiveTab('home')}
         >
-          <Icon 
-            name="home-outline" 
-            size={24} 
-            color={activeTab === 'home' ? '#4285F4' : '#666'} 
+          <Icon
+            name="home-outline"
+            size={24}
+            color={activeTab === 'home' ? '#4285F4' : '#666'}
           />
-          <Text style={[styles.navLabel, activeTab === 'home' && styles.activeNavLabel]}>
+          <Text
+            style={[
+              styles.navLabel,
+              activeTab === 'home' && styles.activeNavLabel,
+            ]}
+          >
             Home
           </Text>
         </TouchableOpacity>
@@ -438,12 +546,17 @@ export default function MainScreen({ navigation }) {
           style={styles.navItem}
           onPress={() => setActiveTab('bookmark')}
         >
-          <Icon 
-            name="bookmark-outline" 
-            size={24} 
-            color={activeTab === 'bookmark' ? '#4285F4' : '#666'} 
+          <Icon
+            name="bookmark-outline"
+            size={24}
+            color={activeTab === 'bookmark' ? '#4285F4' : '#666'}
           />
-          <Text style={[styles.navLabel, activeTab === 'bookmark' && styles.activeNavLabel]}>
+          <Text
+            style={[
+              styles.navLabel,
+              activeTab === 'bookmark' && styles.activeNavLabel,
+            ]}
+          >
             Bookmarks
           </Text>
         </TouchableOpacity>
@@ -451,12 +564,17 @@ export default function MainScreen({ navigation }) {
           style={styles.navItem}
           onPress={() => setActiveTab('settings')}
         >
-          <Icon 
-            name="cog-outline" 
-            size={24} 
-            color={activeTab === 'settings' ? '#4285F4' : '#666'} 
+          <Icon
+            name="cog-outline"
+            size={24}
+            color={activeTab === 'settings' ? '#4285F4' : '#666'}
           />
-          <Text style={[styles.navLabel, activeTab === 'settings' && styles.activeNavLabel]}>
+          <Text
+            style={[
+              styles.navLabel,
+              activeTab === 'settings' && styles.activeNavLabel,
+            ]}
+          >
             Settings
           </Text>
         </TouchableOpacity>

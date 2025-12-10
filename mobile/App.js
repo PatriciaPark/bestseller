@@ -65,6 +65,7 @@ export default function App() {
           <Stack.Screen name="TwDetail" component={BookDetail} />
           <Stack.Screen name="FrDetail" component={BookDetail} />
           <Stack.Screen name="UkDetail" component={BookDetail} />
+          <Stack.Screen name="EsDetail" component={BookDetail} />
           <Stack.Screen name="Settings" component={SettingsPage} />
           <Stack.Screen name="UserData" component={UserDataPage} />
         </Stack.Navigator>

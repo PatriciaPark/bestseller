@@ -29,7 +29,13 @@ const translations = {
   },
   french: {
     title: 'Meilleures ventes mondiales', // Row 13, Column F
-    subtitle: 'Découvrez des livres exceptionnels qui captivent le monde entier !', // Row 14, Column F
+    subtitle:
+      'Découvrez des livres exceptionnels qui captivent le monde entier !', // Row 14, Column F
+  },
+  spanish: {
+    title: 'Superventas mundiales', // Row 13, Column G
+    subtitle:
+      'Descubre libros increíbles de los que todo el mundo está hablando', // Row 14, Column G
   },
 };
 
@@ -47,12 +53,13 @@ export default function SplashPage({ navigation }) {
         if (savedLanguage) {
           // 저장된 언어를 번역 키로 매핑
           const languageMap = {
-            'Korean': 'korean',
-            'English': 'english',
-            'Japanese': 'japanese',
-            'Chinese': 'chinese',
+            Korean: 'korean',
+            English: 'english',
+            Japanese: 'japanese',
+            Chinese: 'chinese',
             'Traditional Chinese': 'traditionalChinese',
-            'French': 'french',
+            French: 'french',
+            spanish: 'spanish',
           };
           setLanguage(languageMap[savedLanguage] || 'english');
         }
@@ -135,8 +142,8 @@ export default function SplashPage({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Image 
-          source={require('./assets/Frame1.png')} 
+        <Image
+          source={require('./assets/Frame1.png')}
           style={styles.iconImage}
           resizeMode="contain"
         />
@@ -199,4 +206,3 @@ const styles = StyleSheet.create({
     backgroundColor: '#E3F2FD',
   },
 });
-

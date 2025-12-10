@@ -23,25 +23,26 @@ export async function getBooksFromCache(country) {
       fr: 'amazon.json', // 프랑스는 amazon.json
       tw: 'taiwan.json',
       uk: 'uk.json',
+      es: 'es.json',
     };
-    
+
     const filename = fileMap[country];
     if (!filename) {
       throw new Error(`Unknown country: ${country}`);
     }
-    
+
     const filePath = path.join(BACKEND_JSON_DIR, filename);
 
     const data = await readFile(filePath, 'utf-8');
-    
+
     // 빈 파일 처리
     if (!data || data.trim() === '') {
       console.log(`⚠️ ${country} 캐시 파일이 비어있음`);
       return [];
     }
-    
+
     const books = JSON.parse(data);
-    
+
     // 빈 배열 처리
     if (!Array.isArray(books) || books.length === 0) {
       console.log(`⚠️ ${country} 캐시 데이터가 비어있음`);
@@ -82,11 +83,12 @@ export async function cacheExists(country) {
       fr: 'amazon.json', // 프랑스는 amazon.json
       tw: 'taiwan.json',
       uk: 'uk.json',
+      es: 'es.json',
     };
-    
+
     const filename = fileMap[country];
     if (!filename) return false;
-    
+
     const filePath = path.join(BACKEND_JSON_DIR, filename);
 
     const { access } = await import('fs/promises');
@@ -96,4 +98,3 @@ export async function cacheExists(country) {
     return false;
   }
 }
-

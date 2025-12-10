@@ -45,10 +45,16 @@ router.get('/kr-book-detail', async (req, res) => {
 
       // 1. 저자 정보 찾기 - 다양한 방법 시도
       // 방법 1: 기본 셀렉터
-      const authorDivs = document.querySelectorAll("div[id^='div_AuthorInfo_']");
+      const authorDivs = document.querySelectorAll(
+        "div[id^='div_AuthorInfo_']",
+      );
       for (const div of authorDivs) {
         const text = div.innerText?.trim() || '';
-        if (text.length > 50 && !text.includes('ISBN') && !text.includes('쪽')) {
+        if (
+          text.length > 50 &&
+          !text.includes('ISBN') &&
+          !text.includes('쪽')
+        ) {
           writerInfo = text;
           break;
         }
@@ -58,9 +64,14 @@ router.get('/kr-book-detail', async (req, res) => {
       if (!writerInfo) {
         const ereBoxes = document.querySelectorAll('.Ere_prod_mconts_box');
         for (const box of ereBoxes) {
-          const title = box.querySelector('.Ere_prod_mconts_LL')?.innerText?.trim() || '';
-          const content = box.querySelector('.Ere_prod_mconts_R')?.innerText?.trim() || '';
-          if ((title.includes('저자') || title.includes('작가')) && content.length > 50) {
+          const title =
+            box.querySelector('.Ere_prod_mconts_LL')?.innerText?.trim() || '';
+          const content =
+            box.querySelector('.Ere_prod_mconts_R')?.innerText?.trim() || '';
+          if (
+            (title.includes('저자') || title.includes('작가')) &&
+            content.length > 50
+          ) {
             writerInfo = content;
             break;
           }
@@ -72,8 +83,13 @@ router.get('/kr-book-detail', async (req, res) => {
         const allDivs = document.querySelectorAll('div');
         for (const div of allDivs) {
           const text = div.innerText?.trim() || '';
-          if (text.length > 100 && (text.includes('저자') || text.includes('작가')) && 
-              !text.includes('ISBN') && !text.includes('쪽') && !text.includes('mm')) {
+          if (
+            text.length > 100 &&
+            (text.includes('저자') || text.includes('작가')) &&
+            !text.includes('ISBN') &&
+            !text.includes('쪽') &&
+            !text.includes('mm')
+          ) {
             writerInfo = text;
             break;
           }
@@ -106,10 +122,18 @@ router.get('/kr-book-detail', async (req, res) => {
       if (!contents) {
         const ereBoxes = document.querySelectorAll('.Ere_prod_mconts_box');
         for (const box of ereBoxes) {
-          const title = box.querySelector('.Ere_prod_mconts_LL')?.innerText?.trim() || '';
-          const content = box.querySelector('.Ere_prod_mconts_R')?.innerText?.trim() || '';
-          if ((title.includes('목차') || title.includes('책소개') || title.includes('책 소개')) && 
-              content.length > 50 && !content.includes('ISBN') && !content.includes('쪽')) {
+          const title =
+            box.querySelector('.Ere_prod_mconts_LL')?.innerText?.trim() || '';
+          const content =
+            box.querySelector('.Ere_prod_mconts_R')?.innerText?.trim() || '';
+          if (
+            (title.includes('목차') ||
+              title.includes('책소개') ||
+              title.includes('책 소개')) &&
+            content.length > 50 &&
+            !content.includes('ISBN') &&
+            !content.includes('쪽')
+          ) {
             contents = content;
             break;
           }
@@ -119,11 +143,19 @@ router.get('/kr-book-detail', async (req, res) => {
       // 3. 출판사 리뷰 찾기 (ISBN, 쪽 등이 없는 실제 리뷰)
       const ereBoxes = document.querySelectorAll('.Ere_prod_mconts_box');
       for (const box of ereBoxes) {
-        const title = box.querySelector('.Ere_prod_mconts_LL')?.innerText?.trim() || '';
-        const content = box.querySelector('.Ere_prod_mconts_R')?.innerText?.trim() || '';
-        if ((title.includes('출판사') || title.includes('리뷰') || title.includes('추천')) && 
-            content.length > 100 && 
-            !content.includes('ISBN') && !content.includes('쪽') && !content.includes('mm')) {
+        const title =
+          box.querySelector('.Ere_prod_mconts_LL')?.innerText?.trim() || '';
+        const content =
+          box.querySelector('.Ere_prod_mconts_R')?.innerText?.trim() || '';
+        if (
+          (title.includes('출판사') ||
+            title.includes('리뷰') ||
+            title.includes('추천')) &&
+          content.length > 100 &&
+          !content.includes('ISBN') &&
+          !content.includes('쪽') &&
+          !content.includes('mm')
+        ) {
           publisherReview = content;
           break;
         }
@@ -483,7 +515,9 @@ router.get('/tw-book-detail', async (req, res) => {
 
       // 1. 책 소개 (contents) 찾기
       // 방법 1: 기본 셀렉터
-      const firstContent = document.querySelector('body div.container_24.main_wrap.clearfix div.grid_19.alpha div.content:first-of-type');
+      const firstContent = document.querySelector(
+        'body div.container_24.main_wrap.clearfix div.grid_19.alpha div.content:first-of-type',
+      );
       if (firstContent) {
         const text = firstContent.innerText?.trim() || '';
         if (text.length > 100) {
@@ -493,11 +527,17 @@ router.get('/tw-book-detail', async (req, res) => {
 
       // 방법 2: 모든 content div를 확인
       if (!contents) {
-        const allContents = document.querySelectorAll('body div.container_24.main_wrap.clearfix div.grid_19.alpha div.content');
+        const allContents = document.querySelectorAll(
+          'body div.container_24.main_wrap.clearfix div.grid_19.alpha div.content',
+        );
         for (let i = 0; i < allContents.length; i++) {
           const text = allContents[i]?.innerText?.trim() || '';
           // 첫 번째 긴 텍스트가 책 소개일 가능성이 높음
-          if (text.length > 200 && !text.includes('作者') && !text.includes('著者')) {
+          if (
+            text.length > 200 &&
+            !text.includes('作者') &&
+            !text.includes('著者')
+          ) {
             contents = text;
             break;
           }
@@ -506,7 +546,9 @@ router.get('/tw-book-detail', async (req, res) => {
 
       // 2. 줄거리 (outline) 찾기
       // 방법 1: 기본 셀렉터
-      const outlineH2 = document.querySelector('#M201105_0_getProdTextInfo_P00a400020009_h2');
+      const outlineH2 = document.querySelector(
+        '#M201105_0_getProdTextInfo_P00a400020009_h2',
+      );
       if (outlineH2) {
         const text = outlineH2.innerText?.trim() || '';
         if (text.length > 50) {
@@ -530,7 +572,11 @@ router.get('/tw-book-detail', async (req, res) => {
         const allH2 = document.querySelectorAll('h2');
         for (const h2 of allH2) {
           const title = h2.innerText?.trim() || '';
-          if (title.includes('內容簡介') || title.includes('內容說明') || title.includes('內容介紹')) {
+          if (
+            title.includes('內容簡介') ||
+            title.includes('內容說明') ||
+            title.includes('內容介紹')
+          ) {
             let nextEl = h2.nextElementSibling;
             while (nextEl && outline.length < 50) {
               const text = nextEl.innerText?.trim() || '';
@@ -547,12 +593,20 @@ router.get('/tw-book-detail', async (req, res) => {
 
       // 3. 저자 정보 (writerInfo) 찾기
       // 방법 1: 기본 셀렉터 (두 번째 content)
-      const allContents = document.querySelectorAll('body div.container_24.main_wrap.clearfix div.grid_19.alpha div.content');
+      const allContents = document.querySelectorAll(
+        'body div.container_24.main_wrap.clearfix div.grid_19.alpha div.content',
+      );
       for (let i = 0; i < allContents.length; i++) {
         const text = allContents[i]?.innerText?.trim() || '';
         // 저자 관련 키워드가 포함된 경우
-        if (text && (text.includes('作者') || text.includes('著者') || text.includes('作家') || 
-                     text.includes('作者簡介') || text.includes('著者紹介'))) {
+        if (
+          text &&
+          (text.includes('作者') ||
+            text.includes('著者') ||
+            text.includes('作家') ||
+            text.includes('作者簡介') ||
+            text.includes('著者紹介'))
+        ) {
           writerInfo = text;
           break;
         }
@@ -563,8 +617,12 @@ router.get('/tw-book-detail', async (req, res) => {
         const allDivs = document.querySelectorAll('div');
         for (const div of allDivs) {
           const text = div.innerText?.trim() || '';
-          if (text.length > 100 && (text.includes('作者') || text.includes('著者')) && 
-              !text.includes('內容簡介') && !text.includes('內容說明')) {
+          if (
+            text.length > 100 &&
+            (text.includes('作者') || text.includes('著者')) &&
+            !text.includes('內容簡介') &&
+            !text.includes('內容說明')
+          ) {
             writerInfo = text;
             break;
           }
@@ -626,7 +684,9 @@ router.get('/fr-book-detail', async (req, res) => {
 
     // expander 버튼 클릭하여 내용 펼치기
     try {
-      const expanderButtons = await page.$$('[data-a-expander-name="book_description_expander"]');
+      const expanderButtons = await page.$$(
+        '[data-a-expander-name="book_description_expander"]',
+      );
       for (const btn of expanderButtons) {
         await btn.click();
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -650,7 +710,9 @@ router.get('/fr-book-detail', async (req, res) => {
       // 방법 1: 기본 셀렉터
       const descDiv = document.querySelector('#bookDescription_feature_div');
       if (descDiv) {
-        const expanderContent = descDiv.querySelector('div.a-expander-content.a-expander-partial-collapse-content');
+        const expanderContent = descDiv.querySelector(
+          'div.a-expander-content.a-expander-partial-collapse-content',
+        );
         if (expanderContent) {
           contents = expanderContent.innerText?.trim() || '';
         }
@@ -668,10 +730,14 @@ router.get('/fr-book-detail', async (req, res) => {
       }
 
       // 2. 출판사 리뷰 (review) 찾기
-      const editorialDiv = document.querySelector('#editorialReviews_feature_div');
+      const editorialDiv = document.querySelector(
+        '#editorialReviews_feature_div',
+      );
       if (editorialDiv) {
         // 방법 1: 기본 셀렉터
-        const section = editorialDiv.querySelector('div.a-section.a-spacing-small.a-padding-base');
+        const section = editorialDiv.querySelector(
+          'div.a-section.a-spacing-small.a-padding-base',
+        );
         if (section) {
           review = section.innerText?.trim() || '';
         }
@@ -690,9 +756,13 @@ router.get('/fr-book-detail', async (req, res) => {
 
       // 3. 저자 정보 (writerInfo) 찾기
       // 방법 1: 기본 셀렉터
-      const authorCard = document.querySelector('div._about-the-author-card_style_cardContentDiv__FXLPd');
+      const authorCard = document.querySelector(
+        'div._about-the-author-card_style_cardContentDiv__FXLPd',
+      );
       if (authorCard) {
-        const cardBody = authorCard.querySelector('div.a-fixed-left-grid-col.a-col-right div.a-cardui-body');
+        const cardBody = authorCard.querySelector(
+          'div.a-fixed-left-grid-col.a-col-right div.a-cardui-body',
+        );
         if (cardBody) {
           writerInfo = cardBody.innerText?.trim() || '';
         }
@@ -724,9 +794,12 @@ router.get('/fr-book-detail', async (req, res) => {
         const allDivs = document.querySelectorAll('div');
         for (const div of allDivs) {
           const text = div.innerText?.trim() || '';
-          if (text.length > 100 && 
-              (text.includes('About the Author') || text.includes('À propos de l\'auteur') || 
-               text.includes('Biographie de l\'auteur'))) {
+          if (
+            text.length > 100 &&
+            (text.includes('About the Author') ||
+              text.includes("À propos de l'auteur") ||
+              text.includes("Biographie de l'auteur"))
+          ) {
             writerInfo = text;
             break;
           }
@@ -753,5 +826,141 @@ router.get('/fr-book-detail', async (req, res) => {
   }
 });
 
-export default router;
+/**
+ * 스페인 책 상세 정보 (El Corte Inglés)
+ */
+router.get('/es-book-detail', async (req, res) => {
+  try {
+    const { url } = req.query;
 
+    if (!url) {
+      return res.status(400).json({ error: 'URL이 필요합니다' });
+    }
+
+    console.log('📘 스페인 책 상세 정보 요청:', url);
+
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+    const page = await browser.newPage();
+
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    );
+
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 40000 });
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // 스크롤하여 동적 콘텐츠 로드
+    await page.evaluate(() => {
+      window.scrollTo(0, document.body.scrollHeight / 2);
+    });
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // 추가 스크롤
+    await page.evaluate(() => {
+      window.scrollTo(0, document.body.scrollHeight);
+    });
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    const bookDetail = await page.evaluate(() => {
+      let description = '';
+      let characteristics = '';
+      let publisher = '';
+
+      // 책 소개 (Description) 찾기
+      // "Características" 섹션에서 찾기
+      const caracteristicasSection =
+        document.querySelector('div.product_detail');
+      if (caracteristicasSection) {
+        const allBlocks = caracteristicasSection.querySelectorAll(
+          'dl.block__container',
+        );
+
+        for (const block of allBlocks) {
+          const text = block.innerText?.trim() || '';
+          // 긴 텍스트 블록이 책 소개일 가능성이 높음
+          if (
+            text.length > 200 &&
+            !text.includes('ISBN') &&
+            !text.includes('Dimensiones') &&
+            !text.includes('páginas')
+          ) {
+            description = text;
+            break;
+          }
+        }
+      }
+
+      // Características 전체 텍스트 가져오기
+      const caracteristicasDiv = document.querySelector('div.product_detail');
+      if (caracteristicasDiv) {
+        const titleDiv = caracteristicasDiv.querySelector(
+          'div.product_detail-title',
+        );
+        if (titleDiv && titleDiv.innerText.includes('Características')) {
+          characteristics = caracteristicasDiv.innerText?.trim() || '';
+        }
+      }
+
+      // Editorial (출판사)
+      const publisherMatch = characteristics.match(/Editorial[:\s]+([^\n]+)/i);
+      if (publisherMatch) {
+        publisher = publisherMatch[1].trim();
+      }
+
+      // "EL LIBRO MÁS ESPERADO DEL AÑO" 같은 소개 텍스트 찾기
+      if (!description) {
+        const allParagraphs = document.querySelectorAll('p');
+        for (const p of allParagraphs) {
+          const text = p.innerText?.trim() || '';
+          if (
+            text.length > 100 &&
+            (text.includes('libro') ||
+              text.includes('memorias') ||
+              text.includes('historia'))
+          ) {
+            description = text;
+            break;
+          }
+        }
+      }
+
+      // block__container에서 긴 텍스트 찾기
+      if (!description) {
+        const allBlocks = document.querySelectorAll('dl.block__container');
+        for (const block of allBlocks) {
+          const text = block.innerText?.trim() || '';
+          if (
+            text.length > 150 &&
+            !text.includes('ISBN') &&
+            !text.includes('Dimensiones')
+          ) {
+            description = text;
+            break;
+          }
+        }
+      }
+
+      return {
+        description, // 책 소개
+        characteristics, // Características 전체
+        publisher, // 출판사
+      };
+    });
+
+    await browser.close();
+
+    console.log('✅ 스페인 책 상세 정보 크롤링 성공');
+    res.json(bookDetail);
+  } catch (err) {
+    console.error('❌ 스페인 책 상세 정보 크롤링 실패:', err);
+    res.status(500).json({
+      error: '스페인 상세 정보 크롤링 실패',
+      message: err.message,
+    });
+  }
+});
+
+export default router;

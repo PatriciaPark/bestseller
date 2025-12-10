@@ -806,6 +806,338 @@ app.get('/jp-book-detail', async (req, res) => {
     });
   }
 });
+app.get('/es-books', async (req, res) => {
+  console.log('🇪🇸 스페인 엔드포인트 호출됨!');
+  let browser = null;
+
+  try {
+    console.log('📘 스페인 크롤링 시작...');
+    const url =
+      'https://www.elcorteingles.es/mas-vendidos/libros/skus.department::0065/';
+
+    browser = await puppeteer.launch({
+      headless: true, // 디버깅 시 false로 변경하여 화면 확인 추천
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-blink-features=AutomationControlled', // 봇 탐지 우회
+        '--window-size=1920,1080',
+      ],
+    });
+    const page = await browser.newPage();
+
+    // 1. 봇 탐지 우회 및 뷰포트 설정
+    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    );
+
+    // 2. 페이지 이동
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+    // 3. [중요] 쿠키 팝업 닫기 (유럽 사이트 필수)
+    try {
+      const cookieSelector = '#onetrust-accept-btn-handler'; // 쿠키 동의 버튼 ID
+      await page.waitForSelector(cookieSelector, { timeout: 5000 });
+      await page.click(cookieSelector);
+      console.log('🍪 쿠키 팝업 닫기 성공');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (e) {
+      console.log('🍪 쿠키 팝업이 없거나 이미 닫힘');
+    }
+
+    // 4. 상품 리스트 로딩 대기
+    try {
+      // 실제 상품 리스트 클래스가 로드될 때까지 대기
+      await page.waitForSelector('.product_preview', { timeout: 10000 });
+    } catch (e) {
+      console.log('⚠️ 상품 리스트 선택자를 찾을 수 없음 (로딩 지연 또는 차단)');
+    }
+
+    // 5. 스크롤 (이미지 Lazy Loading 처리)
+    await page.evaluate(async () => {
+      await new Promise(resolve => {
+        let totalHeight = 0;
+        const distance = 100;
+        const timer = setInterval(() => {
+          const scrollHeight = document.body.scrollHeight;
+          window.scrollBy(0, distance);
+          totalHeight += distance;
+
+          if (totalHeight >= scrollHeight / 2) {
+            // 절반 정도만 스크롤
+            clearInterval(timer);
+            resolve();
+          }
+        }, 100);
+      });
+    });
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // 6. 데이터 추출 (저자/제목 위치 수정 및 중복 제거)
+    const books = await page.evaluate(() => {
+      const items = Array.from(document.querySelectorAll('.product_preview'));
+      const results = [];
+      const seenTitles = new Set();
+
+      items.forEach(el => {
+        try {
+          // [수정 포인트 1] 저자 (Author) = Brand 클래스에서 가져옴
+          // El Corte Ingles는 책 저자를 'Brand' 항목에 표기함
+          const brandEl = el.querySelector('.product_preview-brand');
+          let author = brandEl ? brandEl.innerText.trim() : 'Autor desconocido';
+
+          // [수정 포인트 2] 제목 (Title) = Title 클래스에서 가져옴
+          const titleEl = el.querySelector('.product_preview-title');
+          let title = titleEl ? titleEl.innerText.trim() : '';
+
+          // [예외 처리] 만약 제목이 비어있고 저자 칸에 제목 같은 게 있다면 교체 (가끔 뒤바뀌는 경우 대비)
+          if (!title && author && author.length > 20) {
+            // 저자 칸이 너무 길면 제목일 확률이 높음 (간단한 휴리스틱)
+            title = author;
+            author = 'Autor desconocido';
+          }
+
+          // 이미지 추출
+          const imgEl = el.querySelector('img');
+          let image = '';
+          if (imgEl) {
+            image =
+              imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || '';
+            if (image.startsWith('//')) {
+              image = 'https:' + image;
+            }
+          }
+
+          // 링크 추출
+          const linkEl =
+            el.querySelector('a.js-product-click') || el.querySelector('a');
+          let link = '';
+          if (linkEl) {
+            link = linkEl.getAttribute('href') || '';
+            if (link && !link.startsWith('http')) {
+              link = 'https://www.elcorteingles.es' + link;
+            }
+          }
+
+          // 유효성 검사 (이미지 없거나 제목 없으면 패스)
+          if (
+            !image ||
+            image.includes('data:image') ||
+            image.includes('blank')
+          ) {
+            return;
+          }
+
+          // 중복 제거 후 저장
+          if (title && image && !seenTitles.has(title)) {
+            seenTitles.add(title);
+            results.push({
+              title,
+              author, // 이제 정확한 저자 이름이 들어갑니다
+              image,
+              link,
+            });
+          }
+        } catch (innerErr) {
+          console.error('개별 아이템 파싱 에러:', innerErr);
+        }
+      });
+
+      return results;
+    });
+
+    console.log(`✅ 스페인 크롤링 성공: ${books.length}권`);
+    if (books.length > 0) console.log('첫 번째 책:', books[0]);
+
+    res.json({ books });
+  } catch (err) {
+    console.error('❌ 스페인 크롤링 실패:', err.message);
+    res.status(500).json({ error: 'ES 크롤링 실패', message: err.message });
+  } finally {
+    if (browser) await browser.close();
+  }
+});
+
+// 📘 스페인 책 상세 정보
+app.get('/es-book-detail', async (req, res) => {
+  try {
+    const { url } = req.query;
+
+    if (!url) {
+      return res.status(400).json({ error: 'URL이 필요합니다' });
+    }
+
+    console.log('📘 스페인 책 상세 정보 요청:', url);
+
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+    const page = await browser.newPage();
+
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    );
+
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 40000 });
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // 스크롤하여 동적 콘텐츠 로드
+    await page.evaluate(() => {
+      window.scrollTo(0, document.body.scrollHeight / 2);
+    });
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    await page.evaluate(() => {
+      window.scrollTo(0, document.body.scrollHeight);
+    });
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    const bookDetail = await page.evaluate(() => {
+      console.log('=== El Corte Inglés 상세 페이지 크롤링 시작 ===');
+
+      let description = '';
+      let characteristics = '';
+      let dimensions = '';
+      let pages = '';
+      let isbn = '';
+      let publisher = '';
+
+      // 1. 책 소개 (Description) 찾기
+      const caracteristicasSection =
+        document.querySelector('div.product_detail');
+      if (caracteristicasSection) {
+        const allBlocks = caracteristicasSection.querySelectorAll(
+          'dl.block__container',
+        );
+
+        for (const block of allBlocks) {
+          const text = block.innerText?.trim() || '';
+          if (
+            text.length > 200 &&
+            !text.includes('ISBN') &&
+            !text.includes('Dimensiones') &&
+            !text.includes('páginas')
+          ) {
+            description = text;
+            console.log('✅ 책 소개 찾음');
+            break;
+          }
+        }
+      }
+
+      // 2. Características 전체 텍스트 가져오기
+      const caracteristicasDiv = document.querySelector('div.product_detail');
+      if (caracteristicasDiv) {
+        const titleDiv = caracteristicasDiv.querySelector(
+          'div.product_detail-title',
+        );
+        if (titleDiv && titleDiv.innerText.includes('Características')) {
+          characteristics = caracteristicasDiv.innerText?.trim() || '';
+        }
+      }
+
+      // 3. 개별 정보 파싱
+      const dimensionsMatch = characteristics.match(
+        /Dimensiones[:\s]+([^\n]+)/i,
+      );
+      if (dimensionsMatch) {
+        dimensions = dimensionsMatch[1].trim();
+      }
+
+      const pagesMatch = characteristics.match(
+        /N[º°]\s*de\s*páginas[:\s]+(\d+)/i,
+      );
+      if (pagesMatch) {
+        pages = pagesMatch[1].trim();
+      }
+
+      const isbnMatch = characteristics.match(/ISBN[:\s]+([0-9]+)/i);
+      if (isbnMatch) {
+        isbn = isbnMatch[1].trim();
+      }
+
+      const publisherMatch = characteristics.match(/Editorial[:\s]+([^\n]+)/i);
+      if (publisherMatch) {
+        publisher = publisherMatch[1].trim();
+      }
+
+      // 4. "EL LIBRO MÁS ESPERADO DEL AÑO" 같은 소개 텍스트 찾기
+      if (!description) {
+        const allParagraphs = document.querySelectorAll('p');
+        for (const p of allParagraphs) {
+          const text = p.innerText?.trim() || '';
+          if (
+            text.length > 100 &&
+            (text.includes('libro') ||
+              text.includes('memorias') ||
+              text.includes('historia'))
+          ) {
+            description = text;
+            console.log('✅ 책 소개 찾음 (p 태그)');
+            break;
+          }
+        }
+      }
+
+      // 5. block__container에서 긴 텍스트 찾기
+      if (!description) {
+        const allBlocks = document.querySelectorAll('dl.block__container');
+        for (const block of allBlocks) {
+          const text = block.innerText?.trim() || '';
+          if (
+            text.length > 150 &&
+            !text.includes('ISBN') &&
+            !text.includes('Dimensiones')
+          ) {
+            description = text;
+            console.log('✅ 책 소개 찾음 (block__container)');
+            break;
+          }
+        }
+      }
+
+      console.log('=== 크롤링 결과 ===');
+      console.log('책 소개:', description ? `${description.length}자` : '없음');
+      console.log(
+        'Characteristics:',
+        characteristics ? `${characteristics.length}자` : '없음',
+      );
+      console.log('Dimensions:', dimensions || '없음');
+      console.log('Pages:', pages || '없음');
+      console.log('ISBN:', isbn || '없음');
+      console.log('Publisher:', publisher || '없음');
+
+      return {
+        description,
+        characteristics,
+        dimensions,
+        pages,
+        isbn,
+        publisher,
+      };
+    });
+
+    await browser.close();
+
+    console.log('✅ 스페인 책 상세 정보 크롤링 성공');
+    console.log(
+      '책 소개:',
+      bookDetail.description
+        ? `있음 (${bookDetail.description.length}자)`
+        : '없음',
+    );
+
+    res.json(bookDetail);
+  } catch (err) {
+    console.error('❌ 스페인 책 상세 정보 크롤링 실패:', err);
+    res.status(500).json({
+      error: '스페인 상세 정보 크롤링 실패',
+      message: err.message,
+    });
+  }
+});
 
 app.listen(4000, () => console.log(`🚀 JP Server running on port 4000`));
 app.listen(4000, () => console.log('🚀 Amazon Server running on port 4000'));

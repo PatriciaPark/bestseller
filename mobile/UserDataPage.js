@@ -9,7 +9,6 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 export default function UserDataPage({ navigation }) {
-
   return (
     <View style={styles.container}>
       {/* 헤더 */}
@@ -24,7 +23,10 @@ export default function UserDataPage({ navigation }) {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Start Date */}
         <View style={styles.dataItem}>
           <Text style={styles.dataLabel}>Start Date:</Text>
@@ -88,4 +90,3 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
-

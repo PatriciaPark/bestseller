@@ -66,6 +66,12 @@ const translations = {
     aboutBook: 'Informations sur le livre', // Row 31, Column F
     moreInfo: "Plus d'informations", // Row 32, Column F
   },
+  spanish: {
+    viewOnStore: 'Ver en la tienda',
+    author: 'Autor',
+    aboutBook: 'Sobre el libro',
+    moreInfo: 'Más información',
+  },
 };
 
 // 국가별 설정
@@ -100,6 +106,11 @@ const COUNTRY_CONFIG = {
     apiEndpoint: 'uk-book-detail',
     storeName: 'Waterstones',
     defaultAuthorText: 'is a renowned writer known for their insightful works.',
+  },
+  ES: {
+    apiEndpoint: 'es-book-detail',
+    storeName: 'elcorteingles',
+    defaultAuthorText: 'is a renowned writer known for their insightful works',
   },
 };
 
@@ -255,6 +266,7 @@ export default function BookDetail({ route, navigation }) {
       Chinese: 'chinese',
       'Traditional Chinese': 'traditionalChinese',
       French: 'french',
+      Spanish: 'spanish',
     };
     const langKey = languageMap[appLanguage] || 'english';
     return translations[langKey]?.[key] || translations.english[key];
