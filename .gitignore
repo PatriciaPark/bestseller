@@ -77,6 +77,7 @@ yarn-error.log
 # Project Structure
 # Backend
 backend/node_modules/
+backend/credentials.json
 
 # Server
 server/node_modules/

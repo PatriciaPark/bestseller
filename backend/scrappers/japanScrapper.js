@@ -16,7 +16,7 @@ async function fetchPageBooks(browser) {
     const books = [];
     const links = [];
 
-    const items = Array.from(document.querySelectorAll('.list_area_wrap > div'));
+    const items = Array.from(document.querySelectorAll('.list_area_wrap div'));
     const allImages = Array.from(document.querySelectorAll('img'));
 
     items.slice(0, 20).forEach((el, idx) => {
@@ -203,6 +203,7 @@ async function fetchBookDetail(browser, link) {
 
 export default async function jpScrapper() {
   const startTime = Date.now();
+  const date = new Date();
   const browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
@@ -246,4 +247,3 @@ export default async function jpScrapper() {
 
 // Run directly
 jpScrapper();
-

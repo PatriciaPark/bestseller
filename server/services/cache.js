@@ -10,19 +10,20 @@ const BACKEND_JSON_DIR = path.join(__dirname, '../../backend/json_results');
 
 /**
  * JSON 파일에서 책 데이터 읽기
- * @param {string} country - 국가 코드 (kr, jp, us, tw, fr, uk)
+ * @param {string} country - 국가 코드 (kr, us, jp, uk, ch, tw, fr)
  * @returns {Promise<Array>} 책 목록
  */
 export async function getBooksFromCache(country) {
   try {
     // 모든 국가의 캐시 파일을 backend/json_results에서 읽음
     const fileMap = {
-      kr: 'aladin.json',
-      jp: 'jpbooks.json', // 일본
-      us: 'usbooks.json', // 미국
-      fr: 'amazon.json', // 프랑스는 amazon.json
+      kr: 'korea.json',
+      us: 'us.json', // 미국
+      jp: 'japan.json', // 일본    
+      uk: 'uk.json', 
+      ch: 'china.json',
       tw: 'taiwan.json',
-      uk: 'uk.json',
+      fr: 'france.json', // 프랑스
     };
     
     const filename = fileMap[country];
@@ -76,12 +77,13 @@ export async function cacheExists(country) {
   try {
     // 모든 국가의 캐시 파일을 backend/json_results에서 확인
     const fileMap = {
-      kr: 'aladin.json',
-      jp: 'jpbooks.json', // 일본
-      us: 'usbooks.json', // 미국
-      fr: 'amazon.json', // 프랑스는 amazon.json
-      tw: 'taiwan.json',
+      kr: 'korea.json',
+      us: 'us.json',
+      jp: 'japan.json',
       uk: 'uk.json',
+      ch: 'china.json',
+      tw: 'taiwan.json',
+      fr: 'france.json', 
     };
     
     const filename = fileMap[country];

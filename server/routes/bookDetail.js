@@ -445,6 +445,14 @@ router.get('/jp-book-detail', async (req, res) => {
 });
 
 /**
+ * 영국 책 상세 정보
+ */
+
+/**
+ * 중국 책 상세 정보
+ */
+
+/**
  * 대만 책 상세 정보 (books.com.tw)
  */
 router.get('/tw-book-detail', async (req, res) => {

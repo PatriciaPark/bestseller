@@ -4,6 +4,10 @@ const API_BASE_URL = __DEV__
   ? 'http://10.0.2.2:4000'  // 개발: 안드로이드 에뮬레이터
   : 'https://bestseller-979970292886.us-central1.run.app';  // 프로덕션: 구글 클라우드
 
+
+//개발: 안드포이드 폰 시뮬
+// const API_BASE_URL = 'https://bestseller-979970292886.us-central1.run.app';
+
 export default {
   baseURL: API_BASE_URL,
   endpoints: {

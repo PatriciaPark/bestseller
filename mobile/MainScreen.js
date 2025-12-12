@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,165 +7,99 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import BookmarkScreen from './Bookmark';
-import SettingsPage from './SettingsPage';
+import SettingsPage, { LANGUAGE_OPTIONS } from './SettingsPage';
+import LoadingScreen from './LoadingScreen';
 import { useBookmark } from './BookmarkContext';
-import apiConfig from './config/api';
+import { useLanguage } from './LanguageContext';
+import MyAds from './BannerAd';
+import { BannerAdSize } from 'react-native-google-mobile-ads';
 
-// 번역 데이터 (Google Sheets 기반)
-// 참조: https://docs.google.com/spreadsheets/d/1GoeMU5HbM7g2jujoO5vBI6Z1BH_EjUtnVmV9zWAKpHs/edit?gid=0#gid=0
-// Row 2-8: 국가 이름
-// Row 20: Best Sellers
-const translations = {
-  korean: {
-    bestSellers: '베스트 셀러', // Row 20, Column A
-  },
-  english: {
-    bestSellers: 'Best Sellers', // Row 20, Column B
-  },
-  japanese: {
-    bestSellers: 'ベストセラーズ', // Row 20, Column C
-  },
-  chinese: {
-    bestSellers: '畅销书', // Row 20, Column D
-  },
-  traditionalChinese: {
-    bestSellers: '暢銷書', // Row 20, Column E
-  },
-  french: {
-    bestSellers: 'Meilleures ventes', // Row 20, Column F
-  },
-};
+const COUNTRY_TABS = [
+  { label: 'KOR', index: 0 },
+  { label: 'JPN', index: 2 },
+  { label: 'USA', index: 1 },
+  { label: 'TWN', index: 5 },
+  { label: 'FRA', index: 6 },
+  { label: 'UK', index: 3 },
+];
 
-const countryTranslations = {
-  korean: {
-    KOR: '한국', // Row 2, Column A
-    USA: '미국', // Row 3, Column A
-    JPN: '일본', // Row 4, Column A
-    GBR: '영국', // Row 5, Column A
-    CHN: '중국', // Row 6, Column A
-    TPE: '대만', // Row 7, Column A
-    FRA: '프랑스', // Row 8, Column A
-  },
-  japanese: {
-    JPN: '日本', // Row 4, Column C
-    USA: '美国', // Row 3, Column C
-    KOR: '韓国', // Row 2, Column C
-    CHN: '中国', // Row 6, Column C
-    TPE: '台湾', // Row 7, Column C
-    GBR: '英国', // Row 5, Column C
-    FRA: '仏国', // Row 8, Column C
-  },
-  chinese: {
-    CHN: '中国', // Row 6, Column D
-    TPE: '台湾', // Row 7, Column D
-    USA: '美国', // Row 3, Column D
-    JPN: '日本', // Row 4, Column D
-    KOR: '韩国', // Row 2, Column D
-    GBR: '英国', // Row 5, Column D
-    FRA: '法国', // Row 8, Column D
-  },
-  traditionalChinese: {
-    TPE: '台灣', // Row 7, Column E
-    CHN: '中國', // Row 6, Column E
-    USA: '美國', // Row 3, Column E
-    JPN: '日本', // Row 4, Column E
-    KOR: '韓國', // Row 2, Column E
-    GBR: '英國', // Row 5, Column E
-    FRA: '法國', // Row 8, Column E
-  },
-  french: {
-    FRA: 'France', // Row 8, Column F
-    USA: 'USA', // Row 3, Column F
-    GBR: 'UK', // Row 5, Column F
-    KOR: 'Corée', // Row 2, Column F
-    JPN: 'Japon', // Row 4, Column F
-    CHN: 'Chine', // Row 6, Column F
-    TPE: 'Taïwan', // Row 7, Column F
-  },
-  english: {
-    USA: 'USA',
-    GBR: 'GBR',
-    FRA: 'FRA',
-    KOR: 'KOR',
-    JPN: 'JPN',
-    CHN: 'CHN',
-    TPE: 'TPE',
-  },
+const COUNTRY_LABEL_TO_INDEX = COUNTRY_TABS.reduce((acc, tab) => {
+  acc[tab.label] = tab.index;
+  return acc;
+}, {});
+
+const INDEX_TO_COUNTRY_LABEL = COUNTRY_TABS.reduce((acc, tab) => {
+  acc[tab.index] = tab.label;
+  return acc;
+}, {});
+
+const COUNTRY_INDEX_TO_LABEL_COLUMN = {
+  0: 0, // Korea -> Korean
+  1: 1, // USA -> English
+  2: 2, // Japan -> Japanese
+  3: 1, // UK -> English
+  4: 3, // China -> Chinese
+  5: 4, // Taiwan -> Taiwanese
+  6: 5, // France -> French
 };
 
 export default function MainScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('home');
-  const [activeCountryTab, setActiveCountryTab] = useState('KOR');
-  const [books, setBooks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [language, setLanguage] = useState('original'); // 'korean' or 'original'
-  const [appLanguage, setAppLanguage] = useState('English'); // 앱 언어 설정
   const { isBookmarked, toggleBookmark } = useBookmark();
+  const {
+    country,
+    setCountry,
+    language,
+    setLanguage,
+    userLanguage,
+    filteredData,
+    originalLangs,
+    loading,
+    error,
+    fetchSheets,
+  } = useLanguage();
 
-  // 앱 언어 설정 불러오기
-  useEffect(() => {
-    const loadAppLanguage = async () => {
-      try {
-        const savedLanguage = await AsyncStorage.getItem('appLanguage');
-        if (savedLanguage) {
-          setAppLanguage(savedLanguage);
-        }
-      } catch (error) {
-        console.error('언어 설정 불러오기 실패:', error);
-      }
-    };
-    loadAppLanguage();
-    
-    // 화면이 포커스될 때마다 언어 설정 다시 불러오기
-    const unsubscribe = navigation.addListener('focus', () => {
-      loadAppLanguage();
-    });
-    
-    return unsubscribe;
-  }, [navigation]);
+  const activeCountryTab = useMemo(
+    () => INDEX_TO_COUNTRY_LABEL[country] ?? 'KOR',
+    [country]
+  );
 
-  // 📘 베스트셀러 데이터 가져오기 (Home 탭일 때만)
-  useEffect(() => {
-    if (activeTab !== 'home') return;
+  const books = useMemo(
+    () =>
+      filteredData.map(row => ({
+        image: row[0] || '',
+        title: row[1] || '',
+        author: row[2] || '',
+        authorInfo: row[3] || '',
+        description: row[4] || '',
+        moreInfo: row[5] || '',
+      })),
+    [filteredData]
+  );
 
-    const fetchBooks = async () => {
-      setLoading(true);
-      try {
-        let url = '';
-        if (activeCountryTab === 'KOR') {
-          url = apiConfig.endpoints.krBooks;
-        } else if (activeCountryTab === 'JPN') {
-          url = apiConfig.endpoints.jpBooks;
-        } else if (activeCountryTab === 'USA') {
-          url = apiConfig.endpoints.usBooks;
-        } else if (activeCountryTab === 'TPE') {
-          url = apiConfig.endpoints.twBooks;
-        } else if (activeCountryTab === 'FRA') {
-          url = apiConfig.endpoints.frBooks;
-        } else if (activeCountryTab === 'GBR') {
-          url = apiConfig.endpoints.ukBooks;
-        } else if (activeCountryTab === 'CHN') {
-          // 중국 데이터가 있다면 추가
-          url = apiConfig.endpoints.twBooks; // 임시로 대만 URL 사용
-        }
-        
-        const res = await fetch(url);
-        const data = await res.json();
-        setBooks(data.books || []);
-        setLoading(false);
-      } catch (err) {
-        console.error('❌ Fetch Error:', err);
-        setLoading(false);
-      }
-    };
+  const userLanguageLabel = useMemo(() => {
+    const option = LANGUAGE_OPTIONS.find(opt => opt.value === userLanguage);
+    return option ? option.label : '한국어';
+  }, [userLanguage]);
 
-    fetchBooks();
-  }, [activeTab, activeCountryTab]);
+  const originalLanguageIndex = COUNTRY_INDEX_TO_LABEL_COLUMN[country] ?? 1;
+  
+  const originalLabel = useMemo(() => {
+    if (originalLangs[userLanguage]) {
+      return originalLangs[userLanguage];
+    }
+    return 'Original';
+  }, [userLanguage, originalLangs]);
+
+  const setCountryByLabel = label => {
+    const nextIndex = COUNTRY_LABEL_TO_INDEX[label];
+    if (typeof nextIndex === 'number') {
+      setCountry(nextIndex);
+    }
+  };
 
   // 📚 책 아이템 렌더링
   const renderBookItem = ({ item, index }) => {
@@ -173,10 +107,9 @@ export default function MainScreen({ navigation }) {
       if (activeCountryTab === 'KOR') return 'KrDetail';
       if (activeCountryTab === 'JPN') return 'JpDetail';
       if (activeCountryTab === 'USA') return 'UsDetail';
-      if (activeCountryTab === 'TPE') return 'TwDetail';
+      if (activeCountryTab === 'TWN') return 'TwDetail';
       if (activeCountryTab === 'FRA') return 'FrDetail';
-      if (activeCountryTab === 'GBR') return 'UkDetail';
-      if (activeCountryTab === 'CHN') return 'TwDetail'; // 임시로 대만 디테일 사용
+      if (activeCountryTab === 'UK') return 'UkDetail';
       return 'UsDetail';
     };
 
@@ -184,10 +117,9 @@ export default function MainScreen({ navigation }) {
       if (activeCountryTab === 'KOR') return 'KR';
       if (activeCountryTab === 'JPN') return 'JP';
       if (activeCountryTab === 'USA') return 'US';
-      if (activeCountryTab === 'TPE') return 'TW';
+      if (activeCountryTab === 'TWN') return 'TW';
       if (activeCountryTab === 'FRA') return 'FR';
-      if (activeCountryTab === 'GBR') return 'UK';
-      if (activeCountryTab === 'CHN') return 'CN';
+      if (activeCountryTab === 'UK') return 'UK';
       return 'US';
     };
 
@@ -209,6 +141,8 @@ export default function MainScreen({ navigation }) {
               authorInfo: item.authorInfo,
               publisherReview: item.publisherReview,
               plot: item.plot,
+              other: item.moreInfo,
+              rank: index + 1,
             },
           });
         }}
@@ -261,6 +195,7 @@ export default function MainScreen({ navigation }) {
               authorInfo: item.authorInfo,
               publisherReview: item.publisherReview,
               plot: item.plot,
+              other: item.moreInfo,
             };
             toggleBookmark(bookData);
           }}
@@ -277,10 +212,26 @@ export default function MainScreen({ navigation }) {
 
   const renderHomeContent = () => {
     if (loading) {
+      return <LoadingScreen />;
+    }
+
+    if (error) {
       return (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#4285F4" />
-          <Text style={{ color: '#666', marginTop: 10 }}>불러오는 중...</Text>
+          <Text style={{ color: '#d32f2f', marginBottom: 12 }}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchSheets}>
+            <Text style={styles.retryText}>다시 시도</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    const visibleBooks = books.slice(0, 20);
+
+    if (!visibleBooks.length) {
+      return (
+        <View style={styles.center}>
+          <Text style={{ color: '#666' }}>표시할 데이터가 없습니다.</Text>
         </View>
       );
     }
@@ -289,114 +240,74 @@ export default function MainScreen({ navigation }) {
       <View style={styles.homeContainer}>
         {/* 상단 헤더 */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>
-            {(() => {
-              const languageMap = {
-                'Korean': 'korean',
-                'English': 'english',
-                'Japanese': 'japanese',
-                'Chinese': 'chinese',
-                'Traditional Chinese': 'traditionalChinese',
-                'French': 'french',
-              };
-              const langKey = languageMap[appLanguage] || 'english';
-              return translations[langKey]?.bestSellers || translations.english.bestSellers;
-            })()}
-          </Text>
+          <Text style={styles.headerTitle}>Best Sellers</Text>
           <View style={styles.languageToggle}>
             <TouchableOpacity
               style={[
                 styles.languageOption,
-                language === 'korean' && styles.languageOptionActive
+                language === (userLanguage + 1) && styles.languageOptionActive
               ]}
-              onPress={() => setLanguage('korean')}
+              onPress={() => setLanguage(userLanguage + 1)}
             >
               <Text style={[
                 styles.languageText,
-                language === 'korean' && styles.languageTextActive
+                language === (userLanguage + 1) && styles.languageTextActive
               ]}>
-                한국어
+              {userLanguageLabel}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.languageOption,
-                language === 'original' && styles.languageOptionActive
+                language === 0 && styles.languageOptionActive
               ]}
-              onPress={() => setLanguage('original')}
+              onPress={() => setLanguage(0)}
             >
               <Text style={[
                 styles.languageText,
-                language === 'original' && styles.languageTextActive
+                language === 0 && styles.languageTextActive
               ]}>
-                Original
+              {originalLabel}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* 국가 선택 탭 */}
-        <View style={styles.tabContainerWrapper}>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabContainer}
-          >
-            {(() => {
-              // 언어에 따른 국가 순서 및 번역 가져오기
-              const getCountryOrder = () => {
-                const languageMap = {
-                  'Korean': 'korean',
-                  'English': 'english',
-                  'Japanese': 'japanese',
-                  'Chinese': 'chinese',
-                  'Traditional Chinese': 'traditionalChinese',
-                  'French': 'french',
-                };
-                const langKey = languageMap[appLanguage] || 'english';
-                const translations = countryTranslations[langKey] || countryTranslations.english;
-                
-                // 언어별 국가 순서
-                const orders = {
-                  korean: ['KOR', 'USA', 'JPN', 'GBR', 'CHN', 'TPE', 'FRA'],
-                  japanese: ['JPN', 'USA', 'KOR', 'CHN', 'TPE', 'GBR', 'FRA'],
-                  chinese: ['CHN', 'TPE', 'USA', 'JPN', 'KOR', 'GBR', 'FRA'],
-                  traditionalChinese: ['TPE', 'CHN', 'USA', 'JPN', 'KOR', 'GBR', 'FRA'],
-                  french: ['FRA', 'USA', 'GBR', 'KOR', 'JPN', 'CHN', 'TPE'],
-                  english: ['USA', 'GBR', 'FRA', 'KOR', 'JPN', 'CHN', 'TPE'],
-                };
-                
-                return {
-                  order: orders[langKey] || orders.english,
-                  translations,
-                };
-              };
-              
-              const { order, translations } = getCountryOrder();
-              
-              return order.map((countryCode) => (
-                <TouchableOpacity
-                  key={countryCode}
-                  style={[styles.countryTab, activeCountryTab === countryCode && styles.activeCountryTab]}
-                  onPress={() => setActiveCountryTab(countryCode)}
-                >
-                  <Text style={[styles.countryTabText, activeCountryTab === countryCode && styles.activeCountryTabText]}>
-                    {translations[countryCode] || countryCode}
-                  </Text>
-                </TouchableOpacity>
-              ));
-            })()}
-          </ScrollView>
+        <View style={styles.tabContainer}>
+          {COUNTRY_TABS.map(tab => (
+            <TouchableOpacity
+              key={tab.label}
+              style={[styles.countryTab, activeCountryTab === tab.label && styles.activeCountryTab]}
+              onPress={() => setCountryByLabel(tab.label)}
+            >
+              <Text
+                style={[styles.countryTabText, activeCountryTab === tab.label && styles.activeCountryTabText]}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* 책 목록 */}
         <FlatList
-          data={books.slice(0, 20)}
+          ListHeaderComponent={
+            <View style={styles.adContainer}>
+              <MyAds type="adaptive" size={BannerAdSize.BANNER} />
+            </View>
+          }
+          data={visibleBooks}
           renderItem={renderBookItem}
           keyExtractor={(item, index) => `${activeCountryTab}-${index}`}
           contentContainerStyle={styles.listContainer}
+          ListFooterComponent={
+            <View style={styles.adContainer}>
+              <MyAds type="adaptive" size={BannerAdSize.MEDIUM_RECTANGLE} />
+            </View>
+          }
         />
-      </View>
+      </View> 
     );
   };
 
@@ -484,6 +395,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
   },
+  retryButton: {
+    backgroundColor: '#4285F4',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -525,14 +446,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
-  tabContainerWrapper: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+  adContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
   },
   tabContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
     paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
   },
   countryTab: {
     marginRight: 30,

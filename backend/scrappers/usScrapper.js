@@ -158,11 +158,14 @@ async function fetchBookDetail(browser, link) {
         }
       });
 
+      const other = document.querySelector('#wayfinding-breadcrumbs_feature_div > ul')?.innerText.trim() || '';
+
       return {
         description,
         authorInfo,
         publisher,
         publishDate,
+        other,
       };
     });
 
@@ -171,12 +174,14 @@ async function fetchBookDetail(browser, link) {
   } catch (err) {
     await detailPage.close();
     console.error(`⚠️ 상세 정보 크롤링 실패 (${link}):`, err.message);
-    return { description: '', authorInfo: '', publisher: '', publishDate: '' };
+    return { description: '', authorInfo: '', publisher: '', publishDate: '', other: '' };
   }
 }
 
 export default async function usScrapper() {
   const startTime = Date.now();
+  const date = new Date();
+
   const browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
@@ -204,17 +209,32 @@ export default async function usScrapper() {
       batchBooks[idx].contents = data.description || '';
       batchBooks[idx].authorInfo = data.authorInfo || '';
       batchBooks[idx].writerInfo = data.authorInfo || '';
+      batchBooks[idx].other = data.other || '';
       batchBooks[idx].publisher = data.publisher || batchBooks[idx].publisher || '';
       batchBooks[idx].publishDate = data.publishDate || '';
       console.log(`${i + idx + 1}. ${batchBooks[idx].title} ✅`);
     });
   }
 
-  const resultPath = path.join(process.cwd(), '../json_results/usbooks.json');
-  fs.writeFileSync(resultPath, JSON.stringify(books, null, 2), 'utf-8');
+  const toPublicBook = book => ({
+    image: book.image || '',
+    link: book.link || '',
+    title: book.title || '',
+    author: book.author || '',
+    writerInfo: book.writerInfo || '',
+    description: book.description || book.contents || '',
+    other: book.other || '',
+  });
 
-  console.log(`✅ Crawled ${books.length} books and saved to usbooks.json`);
+  const resultPath = path.join(process.cwd(), '../json_results/us.json');
+  fs.writeFileSync(resultPath, JSON.stringify(books.map(toPublicBook), null, 2), 'utf-8');
+
+  console.log(`✅ Crawled ${books.length} books and saved to us.json`);
   console.log(`⏱ Done in ${(Date.now() - startTime) / 1000}s`);
+  console.log(`📆 Date ${date.getDate()}`);
+
+
+  
   await browser.close();
 }
 

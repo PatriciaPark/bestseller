@@ -23,12 +23,12 @@ async function fetchPageBooks(browser) {
             const li = items[i];
             const detailHref = li.querySelector('div a.a-link-normal')?.href || '';
             const title = li.querySelector('div a.a-link-normal span div')?.innerText || '';
-            const coverImage = li.querySelector('div.a-section img')?.src || '';
+            const image = li.querySelector('div.a-section img')?.src || '';
             const author = li.querySelector('div a.a-size-small div')?.innerText || '';
 
-            if (title && author && coverImage && detailHref) {
-            books.push({ title, author, coverImage });
-            links.push(detailHref);
+            if (title && author && image && detailHref) {
+                books.push({ title, author, image, detailHref });
+                links.push(detailHref);
             }
         };
 
@@ -44,10 +44,10 @@ async function fetchBookDetail(browser, link) {
     await detailPage.goto(link, { waitUntil: 'networkidle2' });
 
     const data = await detailPage.evaluate(() => {
-        const contents = document.querySelector('#bookDescription_feature_div div.a-expander-content.a-expander-partial-collapse-content')?.innerText.trim() || '';
-        const review = document.querySelector('#editorialReviews_feature_div div.a-section.a-spacing-small.a-padding-base')?.innerText.trim() || '';
+        const description = document.querySelector('#bookDescription_feature_div div.a-expander-content.a-expander-partial-collapse-content')?.innerText.trim() || '';
+        const reviewSection = document.querySelector('#editorialReviews_feature_div div.a-section.a-spacing-small.a-padding-base')?.innerText.trim() || '';
         const writerInfo = document.querySelector('div._about-the-author-card_style_cardContentDiv__FXLPd div.a-fixed-left-grid-col.a-col-right div.a-cardui-body')?.innerText.trim() || '';
-        return { contents, review, writerInfo };
+        return { description, other: reviewSection, writerInfo };
     });
 
     await detailPage.close();
@@ -56,6 +56,7 @@ async function fetchBookDetail(browser, link) {
 
 export default async function amazonScrapper() {
     const startTime = Date.now();
+    const date = new Date();
     const browser = await puppeteer.launch({
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
@@ -73,21 +74,36 @@ export default async function amazonScrapper() {
         );
 
         results.forEach((res, idx) => {
-            const data = res.status === 'fulfilled' ? res.value : { contents: '', review: '', writerInfo: '' }; 
-            batchBooks[idx].contents = data.contents;
-            batchBooks[idx].review = data.review;
+            const data = res.status === 'fulfilled' ? res.value : { description: '', other: '', writerInfo: '' }; 
+            batchBooks[idx].description = data.description;
+            batchBooks[idx].other = data.other;
             batchBooks[idx].writerInfo = data.writerInfo;
             console.log(`${i + idx + 1}. ${batchBooks[idx].title} ✅`);
         });
     }
 
-    const resultPath = path.join(process.cwd(), '../json_results/amazon.json');
-    fs.writeFileSync(resultPath, JSON.stringify(books, null, 2), 'utf-8');
+    const resultPath = path.join(process.cwd(), '../json_results/france.json');
+    const sanitized = books.map(toPublicBook);
+    fs.writeFileSync(resultPath, JSON.stringify(sanitized, null, 2), 'utf-8');
 
     console.log(`✅ Crawled ${books.length} books`);
     console.log(`💾 Saved to ${resultPath}`);
+    console.log(`📆 Date ${date.getDate()}`);
     console.log(`⏱ Done in ${(Date.now() - startTime) / 1000}s`);
     await browser.close();
+}
+
+function toPublicBook(raw) {
+    const clean = value => (value || '').trim();
+    return {
+        image: clean(raw.image),
+        link: clean(raw.detailHref),
+        title: clean(raw.title),
+        author: clean(raw.author),
+        writerInfo: clean(raw.writerInfo),
+        description: clean(raw.description),
+        other: clean(raw.other),
+    };
 }
 
 // Run directly

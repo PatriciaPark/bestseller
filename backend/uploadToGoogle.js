@@ -2,12 +2,6 @@ import fs from "fs";
 import { google } from "googleapis";
 import { GoogleAuth } from "google-auth-library";
 
-// import aladinScrapper from "./scrappers/aladinScrapper.js";
-// import amazonScrapper from "./scrappers/amazonScrapper";
-// import gibertScrapper from "./scrappers/gibertScrapper";
-// import kyoboScrapper from "./scrappers/kyoboScrapper.js";
-// import taiwanScrapper from "./scrappers/taiwanScrapper.js";
-
 // Helper: read JSON and format rows
 function readBooksJSON(filename) {
   const jsonPath = `./json_results/${filename}`;
@@ -19,12 +13,13 @@ function readBooksJSON(filename) {
   const data = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
 
   const rows = data.map((book) => [
-    book.coverImage || "",
+    book.image || "",
+    book.link || "",
     book.title || "",
     book.author || "",
     book.writerInfo || "",
-    book.contents || "",
-    book.outline || book.review || ""
+    book.description || "",
+    book.other || ""
   ]);
 
   return rows;
@@ -33,7 +28,7 @@ function readBooksJSON(filename) {
 // Batch update multiple sheets
 async function batchUpdateValues(spreadsheetId, valueInputOption, data) {
   const auth = new GoogleAuth({
-    keyFile: "./credentials.json", // your service account JSON
+    keyFile: "./credentials.json", // service account JSON
     scopes: "https://www.googleapis.com/auth/spreadsheets",
   });
 
@@ -55,31 +50,43 @@ async function batchUpdateValues(spreadsheetId, valueInputOption, data) {
 // Main function
 (async () => {
   // Run scrapers
-  // await aladinScrapper();
-  // await amazonScrapper();
-  // await gibertScrapper();
   // await kyoboScrapper();
+  // await usScrapper();
+  // await japanScrapper();
+  // await ukScrapper();
+  // await chinaScrapper();
   // await taiwanScrapper();
+  // await franceScrapper();
 
-
-  const spreadsheetId = "12YyTh3oZQhyKLIjee-TlDmoDAqa_X76v3yIpil3zq4U";
-
+  const spreadsheetId = "1GoeMU5HbM7g2jujoO5vBI6Z1BH_EjUtnVmV9zWAKpHs";
   const uploadData = [
     {
-      range: "Aladin!B2",
-      values: readBooksJSON("aladin.json"),
+      range: "Korea Data!B3",
+      values: readBooksJSON("korea.json"),
     },
     {
-      range: "Amazon!B2",
-      values: readBooksJSON("amazon.json"),
+      range: "USA Data!B3",
+      values: readBooksJSON("us.json"),
     },
     {
-      range: "Kyobo!B2",
-      values: readBooksJSON("kyobo.json"),
+      range: "Japan Data!B3",
+      values: readBooksJSON("japan.json"),
     },
     {
-      range: "Taiwan!B2",
+      range: "UK Data!B3",
+      values: readBooksJSON("uk.json"),
+    },
+    {
+      range: "China Data!B3",
+      values: readBooksJSON("china.json"),
+    },
+    {
+      range: "Taiwan Data!B3",
       values: readBooksJSON("taiwan.json"),
+    },
+    {
+      range: "France Data!B3",
+      values: readBooksJSON("france.json"),
     },
   ];
 

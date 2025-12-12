@@ -107,18 +107,28 @@ npm start서버는 `http://localhost:4000`에서 실행됩니다.
 ### 2. 모바일 앱 실행
 
 cd mobile
-npm install
+npm install react-native-google-mobile-ads
 npm run android  # Android
+
+- on android device
+adb devices  -shows connected devices
+
+
 # 또는
 npm run ios      # iOS### 3. 배치 크롤러 실행 (선택사항)
 
 주기적으로 최신 베스트셀러 데이터를 수집하려면:
 
+크롤링 결과는 `backend/json_results/`에 JSON 파일로 저장되며, 서버는 이 파일을 우선적으로 사용합니다.
 cd backend/scrappers
 node aladinScrapper.js    # 한국 (알라딘)
 node kyoboScrapper.js     # 한국 (교보문고)
-node amazonScrapper.js    # 미국/프랑스
-node taiwanScrapper.js    # 대만크롤링 결과는 `backend/json_results/`에 JSON 파일로 저장되며, 서버는 이 파일을 우선적으로 사용합니다.
+node usScrapper.js        # 미국
+node japanScrapper.js     #
+node ukScrapper.js        #
+node chinaScrapper.js     #
+node taiwanScrapper.js    # 대만
+node franceScrapper.js    # 프랑스
 
 ---
 
@@ -156,6 +166,7 @@ node taiwanScrapper.js    # 대만크롤링 결과는 `backend/json_results/`에
 - 캐시가 없을 경우에만 실시간 크롤링을 수행합니다
 - 모바일 앱은 Android 에뮬레이터에서 `10.0.2.2:4000`으로 서버에 접속합니다
 - 북마크 데이터는 AsyncStorage에 로컬로 저장됩니다
+- 구글 클라우드/API 사용시 credentials.json 추가 필요
 
 ---
 

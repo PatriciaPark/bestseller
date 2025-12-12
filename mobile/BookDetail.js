@@ -1,5 +1,5 @@
 // BookDetail.js - 통합 상세 화면 (모든 국가 지원)
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -10,85 +10,41 @@ import {
   ActivityIndicator,
   StyleSheet,
   Modal,
+  SafeAreaView,
 } from 'react-native';
-// WebView는 react-native-webview 패키지 설치 필요
-// 설치 후 아래 주석을 해제하세요: npm install react-native-webview
-// import { WebView } from 'react-native-webview';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { WebView } from 'react-native-webview';
 import { useBookmark } from './BookmarkContext';
 import { CloseIcon, StarIcon, ShareIcon, ExternalLinkIcon } from './components/IconButton';
 import apiConfig from './config/api';
-
-// 번역 데이터 (Google Sheets 기반)
-// 참조: https://docs.google.com/spreadsheets/d/1GoeMU5HbM7g2jujoO5vBI6Z1BH_EjUtnVmV9zWAKpHs/edit?gid=0#gid=0
-// Row 29: View on Store
-// Row 30: Author
-// Row 31: About Book
-// Row 32: More Info
-const translations = {
-  korean: {
-    viewOnStore: '스토어 방문', // Row 29, Column A
-    author: '저자', // Row 30, Column A
-    aboutBook: '도서 정보', // Row 31, Column A
-    moreInfo: '상세 정보', // Row 32, Column A
-  },
-  english: {
-    viewOnStore: 'View on Store', // Row 29, Column B
-    author: 'Author', // Row 30, Column B
-    aboutBook: 'About Book', // Row 31, Column B
-    moreInfo: 'More Info', // Row 32, Column B
-  },
-  japanese: {
-    viewOnStore: 'ストアで見る', // Row 29, Column C
-    author: '著者', // Row 30, Column C
-    aboutBook: '書籍情報', // Row 31, Column C
-    moreInfo: '詳細情報', // Row 32, Column C
-  },
-  chinese: {
-    viewOnStore: '前往商店', // Row 29, Column D
-    author: '作者', // Row 30, Column D
-    aboutBook: '图书信息', // Row 31, Column D
-    moreInfo: '细节', // Row 32, Column D
-  },
-  traditionalChinese: {
-    viewOnStore: '查看店鋪', // Row 29, Column E
-    author: '作者', // Row 30, Column E
-    aboutBook: '關於本書', // Row 31, Column E
-    moreInfo: '更多資訊', // Row 32, Column E
-  },
-  french: {
-    viewOnStore: 'Voir en magasin', // Row 29, Column F
-    author: 'auteur', // Row 30, Column F
-    aboutBook: 'Informations sur le livre', // Row 31, Column F
-    moreInfo: 'Plus d\'informations', // Row 32, Column F
-  },
-};
+import { useLanguage } from './LanguageContext';
+import MyAds from './BannerAd';
+import { BannerAdSize } from 'react-native-google-mobile-ads';
 
 // 국가별 설정
 const COUNTRY_CONFIG = {
   KR: {
     apiEndpoint: 'kr-book-detail',
-    storeName: 'Store',
+    storeName: 'Kyobo',
     defaultAuthorText: 'is a renowned author known for their insightful works.',
   },
   US: {
     apiEndpoint: 'us-book-detail',
-    storeName: 'Store',
+    storeName: 'Amazon',
     defaultAuthorText: 'is a renowned writer known for their insightful works.',
   },
   JP: {
     apiEndpoint: 'jp-book-detail',
-    storeName: 'Store',
+    storeName: 'Amazon',
     defaultAuthorText: 'は、洞察力のある作品で知られる著名な作家です。',
   },
   TW: {
     apiEndpoint: 'tw-book-detail',
-    storeName: 'Store',
+    storeName: 'Books.com.tw',
     defaultAuthorText: 'is a renowned writer known for their insightful works.',
   },
   FR: {
     apiEndpoint: 'fr-book-detail',
-    storeName: 'Store',
+    storeName: 'Amazon FR',
     defaultAuthorText: 'est un écrivain renommé connu pour ses œuvres perspicaces.',
   },
   UK: {
@@ -102,70 +58,32 @@ export default function BookDetail({ route, navigation }) {
   const { book } = route.params;
   const country = book.country || 'US';
   const config = COUNTRY_CONFIG[country] || COUNTRY_CONFIG.US;
+  const { columnHeaders } = useLanguage();
   
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('author'); // 기본값을 'author'로 변경
+  const [activeTab, setActiveTab] = useState('contents');
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
-  const [appLanguage, setAppLanguage] = useState('English');
+  const { isBookmarked, toggleBookmark } = useBookmark();
+  
+  // Wiki Modal State
   const [wikiModalVisible, setWikiModalVisible] = useState(false);
   const [wikiUrl, setWikiUrl] = useState('');
-  const [wikiType, setWikiType] = useState(''); // 'title' or 'author'
-  const { isBookmarked, toggleBookmark } = useBookmark();
 
-  // 앱 언어 설정 불러오기
-  useEffect(() => {
-    const loadAppLanguage = async () => {
-      try {
-        const savedLanguage = await AsyncStorage.getItem('appLanguage');
-        if (savedLanguage) {
-          setAppLanguage(savedLanguage);
-        }
-      } catch (error) {
-        console.error('언어 설정 불러오기 실패:', error);
-      }
-    };
-    loadAppLanguage();
-  }, []);
-
-  // 위키 URL 생성 함수
-  const getWikiUrl = (query, type) => {
-    const languageMap = {
-      'Korean': 'ko',
-      'English': 'en',
-      'Japanese': 'ja',
-      'Chinese': 'zh',
-      'Traditional Chinese': 'zh-tw',
-      'French': 'fr',
-    };
-    const lang = languageMap[appLanguage] || 'en';
-    const encodedQuery = encodeURIComponent(query);
-    return `https://${lang}.wikipedia.org/wiki/${encodedQuery}`;
+  const openWiki = (query) => {
+    const url = `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(query)}`;
+    setWikiUrl(url);
+    setWikiModalVisible(true);
   };
 
-  // 위키 팝업 열기
-  const openWiki = async (query, type) => {
-    const url = getWikiUrl(query, type);
-    try {
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        // WebView가 설치되어 있으면 팝업으로, 없으면 외부 브라우저로 열기
-        // WebView 사용 시 아래 주석 해제하고 Linking.openURL 주석 처리
-        setWikiUrl(url);
-        setWikiType(type);
-        setWikiModalVisible(true);
-        // await Linking.openURL(url); // WebView 사용 시 주석 처리
-      }
-    } catch (error) {
-      console.error('Error opening wiki URL:', error);
-      // 에러 발생 시 외부 브라우저로 열기
-      try {
-        await Linking.openURL(url);
-      } catch (e) {
-        console.error('Error opening URL in browser:', e);
-      }
-    }
-  };
+  const tabHeaderMap = useMemo(
+    () => ({
+      author: columnHeaders[3] || '',
+      contents: columnHeaders[4] || '',
+      other: columnHeaders[5] || '',
+    }),
+    [columnHeaders]
+  );
 
   // 책 상세 정보 가져오기
   useEffect(() => {
@@ -178,6 +96,7 @@ export default function BookDetail({ route, navigation }) {
         contents: book.contents || '',
         plot: book.plot || '',
         tableOfContents: book.tableOfContents || '',
+        other: book.other || "",
       });
       setLoading(false);
       
@@ -208,6 +127,7 @@ export default function BookDetail({ route, navigation }) {
                 contents: data.contents || prev.contents || '',
                 plot: data.plot || prev.plot || '',
                 tableOfContents: data.tableOfContents || prev.tableOfContents || '',
+                other: data.other || prev.other || '',
               }));
             }
           })
@@ -245,31 +165,25 @@ export default function BookDetail({ route, navigation }) {
       // 데이터가 전혀 없는 경우
       setLoading(false);
     }
-  }, [book.link, book.description, book.contents, book.authorInfo, book.publisherReview, book.plot, config.apiEndpoint]);
+  }, [book.link, book.description, book.contents, book.authorInfo, book.other, book.plot, config.apiEndpoint]);
 
-  // 번역 가져오기
-  const getTranslation = (key) => {
-    const languageMap = {
-      'Korean': 'korean',
-      'English': 'english',
-      'Japanese': 'japanese',
-      'Chinese': 'chinese',
-      'Traditional Chinese': 'traditionalChinese',
-      'French': 'french',
-    };
-    const langKey = languageMap[appLanguage] || 'english';
-    return translations[langKey]?.[key] || translations.english[key];
-  };
-
-  // 탭 제목 가져오기
+  // 탭 제목을 데이터에 따라 동적으로 결정
   const getTabTitle = (tab) => {
+    if (tabHeaderMap[tab]) {
+      return tabHeaderMap[tab];
+    }
     switch (tab) {
+      case 'contents':
+        if (details?.tableOfContents) return 'Table of Contents';
+        if (details?.plot) return 'Plot Summary';
+        if (details?.description || details?.contents) return 'Book Description';
+        return 'Description';
       case 'author':
-        return getTranslation('author');
-      case 'aboutBook':
-        return getTranslation('aboutBook');
-      case 'moreInfo':
-        return getTranslation('moreInfo');
+        if (details?.authorInfo) return 'About the Author';
+        return 'Author Info';
+      case 'other':
+        if (details?.other) return 'Other Information';
+        return 'Other';
       default:
         return '';
     }
@@ -287,10 +201,10 @@ export default function BookDetail({ route, navigation }) {
             </Text>
           </View>
         );
-      case 'aboutBook':
+      case 'contents':
         return (
           <View style={styles.tabContent}>
-            <Text style={styles.tabContentTitle}>{getTabTitle('aboutBook')}</Text>
+            <Text style={styles.tabContentTitle}>{getTabTitle('contents')}</Text>
             {details?.tableOfContents ? (
               <Text style={styles.tabContentText}>{details.tableOfContents}</Text>
             ) : details?.plot ? (
@@ -321,15 +235,17 @@ export default function BookDetail({ route, navigation }) {
                 )}
               </View>
             )}
+            <View style={[styles.adContainer, { marginTop: 20 }]}>
+              <MyAds type="adaptive" size={BannerAdSize.LARGE_BANNER} />
+            </View>
           </View>
         );
-      case 'moreInfo':
+      case 'other':
         return (
           <View style={styles.tabContent}>
-            <Text style={styles.tabContentTitle}>{getTabTitle('moreInfo')}</Text>
+            <Text style={styles.tabContentTitle}>{getTabTitle('other')}</Text>
             <Text style={styles.tabContentText}>
-              {details?.publisherReview || details?.review || details?.contents || details?.description || 
-                'Publisher review information is not available.'}
+              {details?.other || 'Other information is not available.'}
             </Text>
           </View>
         );
@@ -367,84 +283,36 @@ export default function BookDetail({ route, navigation }) {
 
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
         {/* 책 커버 및 정보 */}
-        <View style={styles.bookHeaderContainer}>
-          <View style={[
-            styles.bookHeader,
-            descriptionExpanded && styles.bookHeaderExpanded
-          ]}>
-            <View style={styles.bookImageContainer}>
-              {book.image ? (
-                <Image source={{ uri: book.image }} style={styles.bookImage} />
-              ) : (
-                <View style={[styles.bookImage, styles.imagePlaceholder]}>
-                  <Text style={styles.placeholderText}>No Image</Text>
-                </View>
-              )}
-              {/* View on Store 버튼 - 책 표지 바로 아래 */}
-              {book.link && (
-                <TouchableOpacity
-                  style={styles.viewStoreButton}
-                  onPress={async () => {
-                    try {
-                      const canOpen = await Linking.canOpenURL(book.link);
-                      if (canOpen) {
-                        await Linking.openURL(book.link);
-                      } else {
-                        console.error('Cannot open URL:', book.link);
-                      }
-                    } catch (error) {
-                      console.error('Error opening URL:', error);
-                    }
-                  }}
-                >
-                  <Text style={styles.viewStoreText} numberOfLines={1}>
-                    {getTranslation('viewOnStore')}
-                  </Text>
-                </TouchableOpacity>
-              )}
+        <View style={styles.bookHeader}>
+          {book.image ? (
+            <Image source={{ uri: book.image }} style={styles.bookImage} />
+          ) : (
+            <View style={[styles.bookImage, styles.imagePlaceholder]}>
+              <Text style={styles.placeholderText}>No Image</Text>
             </View>
-            <View style={[
-              styles.bookInfo,
-              descriptionExpanded && styles.bookInfoExpanded
-            ]}>
-              <TouchableOpacity onPress={() => book.title && openWiki(book.title, 'title')}>
-                <Text style={styles.title}>{book.title}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => book.author && openWiki(book.author, 'author')}>
-                <Text style={styles.author}>{book.author || 'Unknown Author'}</Text>
-              </TouchableOpacity>
-              {!descriptionExpanded && (
-                <View style={styles.descriptionContainer}>
-                  <Text 
-                    style={styles.description}
-                    numberOfLines={3}
-                  >
-                    {details?.contents || details?.description || 
-                      'A compelling story that captivates readers with its depth and insight.'}
-                  </Text>
-                  {((details?.contents || details?.description) && 
-                    ((details.contents?.length > 150) || (details.description?.length > 150))) && (
-                    <TouchableOpacity
-                      onPress={() => setDescriptionExpanded(!descriptionExpanded)}
-                      style={styles.moreButton}
-                    >
-                      <Text style={styles.moreButtonText}>
-                        See More
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
+          )}
+          <View style={styles.bookInfo}>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>#{book.rank || 1} Best Seller</Text>
             </View>
-          </View>
-          {/* 확장된 설명 - View on Store 버튼 아래까지 확장 */}
-          {descriptionExpanded && (
-            <View style={styles.descriptionExpandedContainer}>
+            <Text style={styles.title}>{book.title}</Text>
+            <View style={styles.authorContainer}>
+              <Text style={styles.author}>{book.author || 'Unknown Author'}</Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  if (book.author) {
+                    openWiki(book.author);
+                  }
+                }}
+                style={styles.wikiButton}
+              >
+                <Text style={styles.wikiButtonText}>Author Wiki</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.descriptionContainer}>
               <Text 
-                style={[
-                  styles.description,
-                  styles.descriptionExpanded
-                ]}
+                style={styles.description}
+                numberOfLines={descriptionExpanded ? undefined : 3}
               >
                 {details?.contents || details?.description || 
                   'A compelling story that captivates readers with its depth and insight.'}
@@ -456,16 +324,54 @@ export default function BookDetail({ route, navigation }) {
                   style={styles.moreButton}
                 >
                   <Text style={styles.moreButtonText}>
-                    Show Less
+                    {descriptionExpanded ? 'Show Less' : 'See More'}
                   </Text>
                 </TouchableOpacity>
               )}
             </View>
-          )}
+          </View>
         </View>
 
-        {/* 탭 네비게이션 - Author / About Book / More Info 순서 */}
+        {/* 버튼 영역 */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.viewStoreButton}
+            onPress={async () => {
+              if (book.link) {
+                try {
+                  const canOpen = await Linking.canOpenURL(book.link);
+                  if (canOpen) {
+                    await Linking.openURL(book.link);
+                  } else {
+                    console.error('Cannot open URL:', book.link);
+                  }
+                } catch (error) {
+                  console.error('Error opening URL:', error);
+                }
+              }
+            }}
+          >
+            <ExternalLinkIcon size={16} color="#fff" />
+            <Text style={styles.viewStoreText}>View on {config.storeName}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.previewButton}
+            onPress={() => openWiki(book.title)}
+          >
+            <Text style={styles.previewText}>Wikipedia</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 탭 네비게이션 */}
         <View style={styles.tabNavigation}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'contents' && styles.activeTab]}
+            onPress={() => setActiveTab('contents')}
+          >
+            <Text style={[styles.tabText, activeTab === 'contents' && styles.activeTabText]}>
+              {getTabTitle('contents')}
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'author' && styles.activeTab]}
             onPress={() => setActiveTab('author')}
@@ -475,19 +381,11 @@ export default function BookDetail({ route, navigation }) {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'aboutBook' && styles.activeTab]}
-            onPress={() => setActiveTab('aboutBook')}
+            style={[styles.tab, activeTab === 'other' && styles.activeTab]}
+            onPress={() => setActiveTab('other')}
           >
-            <Text style={[styles.tabText, activeTab === 'aboutBook' && styles.activeTabText]}>
-              {getTabTitle('aboutBook')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'moreInfo' && styles.activeTab]}
-            onPress={() => setActiveTab('moreInfo')}
-          >
-            <Text style={[styles.tabText, activeTab === 'moreInfo' && styles.activeTabText]}>
-              {getTabTitle('moreInfo')}
+            <Text style={[styles.tabText, activeTab === 'other' && styles.activeTabText]}>
+              {getTabTitle('other')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -503,61 +401,43 @@ export default function BookDetail({ route, navigation }) {
         )}
       </ScrollView>
 
-      {/* 위키 팝업 모달 - WebView 설치 후 주석 해제 필요 */}
-      {wikiModalVisible && (
-        <Modal
-          visible={wikiModalVisible}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setWikiModalVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {wikiType === 'title' ? book.title : book.author}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setWikiModalVisible(false)}
-                style={styles.modalCloseButton}
-              >
-                <CloseIcon size={24} color="#000" />
-              </TouchableOpacity>
-            </View>
-            {/* WebView 설치 후 주석 해제 */}
-            {/* 
-            <WebView
+      {/* 위키피디아 모달 */}
+      <Modal
+        visible={wikiModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setWikiModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity 
+            style={styles.modalBackgroundClick} 
+            onPress={() => setWikiModalVisible(false)} 
+            activeOpacity={1}
+          />
+
+          <View style={styles.modalContent}>
+            <TouchableOpacity 
+              style={styles.closeModalButton}
+              onPress={() => setWikiModalVisible(false)}
+            >
+              <CloseIcon size={24} color="#000" />
+            </TouchableOpacity>
+            <WebView 
               source={{ uri: wikiUrl }}
               style={styles.webView}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
               startInLoadingState={true}
-              renderLoading={() => (
-                <View style={styles.webViewLoading}>
-                  <ActivityIndicator size="large" color="#4285F4" />
-                </View>
-              )}
+              scalesPageToFit={true}
+              mixedContentMode="always"
             />
-            */}
-            {/* WebView가 없을 경우 임시로 외부 브라우저로 열기 */}
-            <View style={styles.webView}>
-              <Text style={styles.webViewPlaceholder}>
-                WebView를 사용하려면 react-native-webview를 설치하세요.
-              </Text>
-              <TouchableOpacity
-                style={styles.openBrowserButton}
-                onPress={async () => {
-                  try {
-                    await Linking.openURL(wikiUrl);
-                    setWikiModalVisible(false);
-                  } catch (error) {
-                    console.error('Error opening URL:', error);
-                  }
-                }}
-              >
-                <Text style={styles.openBrowserButtonText}>브라우저에서 열기</Text>
-              </TouchableOpacity>
-            </View>
           </View>
-        </Modal>
-      )}
+
+          <View style={[styles.adContainer, { marginBottom: 0 }]} >
+            <MyAds type="adaptive" size={BannerAdSize.BANNER} />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -594,25 +474,22 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  bookHeaderContainer: {
+  bookHeader: {
+    flexDirection: 'row',
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
-  bookHeader: {
-    flexDirection: 'row',
-  },
-  bookHeaderExpanded: {
-    marginBottom: 0,
-  },
-  bookImageContainer: {
-    marginRight: 15,
+  adContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
   },
   bookImage: {
     width: 120,
     height: 180,
     borderRadius: 8,
     resizeMode: 'cover',
-    marginBottom: 12,
+    marginRight: 15,
   },
   imagePlaceholder: {
     backgroundColor: '#E0E0E0',
@@ -626,8 +503,18 @@ const styles = StyleSheet.create({
   bookInfo: {
     flex: 1,
   },
-  bookInfoExpanded: {
-    paddingBottom: 0,
+  badge: {
+    backgroundColor: '#4285F4',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   title: {
     fontSize: 22,
@@ -636,58 +523,80 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 28,
   },
+  authorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    flexWrap: 'wrap',
+  },
   author: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 12,
+    marginRight: 8,
+  },
+  wikiButton: {
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  wikiButtonText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
   },
   descriptionContainer: {
     marginTop: 4,
-  },
-  descriptionContainerExpanded: {
-    marginTop: 0,
-    marginBottom: 0,
-    paddingBottom: 0,
-  },
-  descriptionExpandedContainer: {
-    marginTop: 16,
-    width: '100%',
   },
   description: {
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
   },
-  descriptionExpanded: {
-    lineHeight: 22,
-    letterSpacing: 0.2,
-    width: '100%',
-  },
   moreButton: {
     marginTop: 8,
     alignSelf: 'flex-start',
-    paddingVertical: 4,
   },
   moreButtonText: {
     fontSize: 14,
     color: '#4285F4',
     fontWeight: '500',
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 30,
+    gap: 12,
+  },
   viewStoreButton: {
+    flex: 1,
     backgroundColor: '#4285F4',
     borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 120,
+    gap: 8,
   },
   viewStoreText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: '600',
-    textAlign: 'center',
+  },
+  previewButton: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewText: {
+    color: '#4285F4',
+    fontSize: 16,
+    fontWeight: '600',
   },
   tabNavigation: {
     flexDirection: 'row',
@@ -752,64 +661,28 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#fff',
-    marginTop: 50,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
+  modalBackgroundClick: {
     flex: 1,
   },
-  modalCloseButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
+  modalContent: {
+    height: '90%',
+    width: '100%',
+    top: 0,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+  },
+  closeModalButton: {
+    alignSelf: 'flex-end',
+    padding: 15,
+    zIndex: 1,
   },
   webView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  webViewLoading: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  webViewPlaceholder: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  openBrowserButton: {
-    backgroundColor: '#4285F4',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  openBrowserButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
 

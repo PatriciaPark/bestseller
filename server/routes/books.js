@@ -9,9 +9,10 @@ puppeteer.use(StealthPlugin());
 
 const router = express.Router();
 
+// * 캐시 우선, 없으면 실시간 크롤링
+
 /**
  * 한국 책 목록 (알라딘)
- * 캐시 우선, 없으면 실시간 크롤링
  */
 router.get('/kr-books', async (req, res) => {
   try {
@@ -164,75 +165,6 @@ router.get('/us-books', async (req, res) => {
 });
 
 /**
- * 대만 책 목록
- */
-router.get('/tw-books', async (req, res) => {
-  try {
-    // 캐시 확인
-    if (await cacheExists('tw')) {
-      const books = await getBooksFromCache('tw');
-      if (books.length > 0) {
-        console.log(`✅ 캐시된 데이터 사용 (TW): ${books.length}권`);
-        return res.json({ books });
-      }
-    }
-
-    // 캐시가 없으면 빈 배열 반환 (배치 크롤링 결과만 사용)
-    console.log('⚠️ 대만 데이터 캐시 없음');
-    res.json({ books: [] });
-  } catch (err) {
-    console.error('❌ 대만 데이터 로드 실패:', err.message);
-    res.status(500).json({ error: 'TW 데이터 로드 실패', message: err.message });
-  }
-});
-
-/**
- * 프랑스 책 목록 (Amazon.fr)
- */
-router.get('/fr-books', async (req, res) => {
-  try {
-    // 캐시 확인
-    if (await cacheExists('fr')) {
-      const books = await getBooksFromCache('fr');
-      if (books.length > 0) {
-        console.log(`✅ 캐시된 데이터 사용 (FR): ${books.length}권`);
-        return res.json({ books });
-      }
-    }
-
-    // 캐시가 없으면 빈 배열 반환 (배치 크롤링 결과만 사용)
-    console.log('⚠️ 프랑스 데이터 캐시 없음');
-    res.json({ books: [] });
-  } catch (err) {
-    console.error('❌ 프랑스 데이터 로드 실패:', err.message);
-    res.status(500).json({ error: 'FR 데이터 로드 실패', message: err.message });
-  }
-});
-
-/**
- * 영국 책 목록 (Waterstones)
- */
-router.get('/uk-books', async (req, res) => {
-  try {
-    // 캐시 확인
-    if (await cacheExists('uk')) {
-      const books = await getBooksFromCache('uk');
-      if (books.length > 0) {
-        console.log(`✅ 캐시된 데이터 사용 (UK): ${books.length}권`);
-        return res.json({ books });
-      }
-    }
-
-    // 캐시가 없으면 빈 배열 반환 (배치 크롤링 결과만 사용)
-    console.log('⚠️ 영국 데이터 캐시 없음');
-    res.json({ books: [] });
-  } catch (err) {
-    console.error('❌ 영국 데이터 로드 실패:', err.message);
-    res.status(500).json({ error: 'UK 데이터 로드 실패', message: err.message });
-  }
-});
-
-/**
  * 일본 책 목록
  */
 router.get('/jp-books', async (req, res) => {
@@ -361,6 +293,98 @@ router.get('/jp-books', async (req, res) => {
   } catch (err) {
     console.error('❌ 일본 크롤링 실패:', err.message);
     res.status(500).json({ error: 'JP 크롤링 실패', message: err.message });
+  }
+});
+
+/**
+ * 영국 책 목록 (Waterstones)
+ */
+router.get('/uk-books', async (req, res) => {
+  try {
+    // 캐시 확인
+    if (await cacheExists('uk')) {
+      const books = await getBooksFromCache('uk');
+      if (books.length > 0) {
+        console.log(`✅ 캐시된 데이터 사용 (UK): ${books.length}권`);
+        return res.json({ books });
+      }
+    }
+
+    // 캐시가 없으면 빈 배열 반환 (배치 크롤링 결과만 사용)
+    console.log('⚠️ 영국 데이터 캐시 없음');
+    res.json({ books: [] });
+  } catch (err) {
+    console.error('❌ 영국 데이터 로드 실패:', err.message);
+    res.status(500).json({ error: 'UK 데이터 로드 실패', message: err.message });
+  }
+});
+
+/**
+ * 중국 책 목록
+ */
+router.get('/ch-books', async (req, res) => {
+  try {
+    // 캐시 확인
+    if (await cacheExists('ch')) {
+      const books = await getBooksFromCache('ch');
+      if (books.length > 0) {
+        console.log(`✅ 캐시된 데이터 사용 (CH): ${books.length}권`);
+        return res.json({ books });
+      }
+    }
+
+    // 캐시가 없으면 빈 배열 반환 (배치 크롤링 결과만 사용)
+    console.log('⚠️ 영국 데이터 캐시 없음');
+    res.json({ books: [] });
+  } catch (err) {
+    console.error('❌ 영국 데이터 로드 실패:', err.message);
+    res.status(500).json({ error: 'UK 데이터 로드 실패', message: err.message });
+  }
+});
+
+/**
+ * 대만 책 목록
+ */
+router.get('/tw-books', async (req, res) => {
+  try {
+    // 캐시 확인
+    if (await cacheExists('tw')) {
+      const books = await getBooksFromCache('tw');
+      if (books.length > 0) {
+        console.log(`✅ 캐시된 데이터 사용 (TW): ${books.length}권`);
+        return res.json({ books });
+      }
+    }
+
+    // 캐시가 없으면 빈 배열 반환 (배치 크롤링 결과만 사용)
+    console.log('⚠️ 대만 데이터 캐시 없음');
+    res.json({ books: [] });
+  } catch (err) {
+    console.error('❌ 대만 데이터 로드 실패:', err.message);
+    res.status(500).json({ error: 'TW 데이터 로드 실패', message: err.message });
+  }
+});
+
+/**
+ * 프랑스 책 목록 (Amazon.fr)
+ */
+router.get('/fr-books', async (req, res) => {
+  try {
+    // 캐시 확인
+    if (await cacheExists('fr')) {
+      const books = await getBooksFromCache('fr');
+      if (books.length > 0) {
+        console.log(`✅ 캐시된 데이터 사용 (FR): ${books.length}권`);
+        return res.json({ books });
+      }
+    }
+
+    // 캐시가 없으면 빈 배열 반환 (배치 크롤링 결과만 사용)
+    console.log('⚠️ 프랑스 데이터 캐시 없음');
+    res.json({ books: [] });
+  } catch (err) {
+    console.error('❌ 프랑스 데이터 로드 실패:', err.message);
+    res.status(500).json({ error: 'FR 데이터 로드 실패', message: err.message });
   }
 });
 
