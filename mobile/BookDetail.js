@@ -22,7 +22,6 @@ import {
   ShareIcon,
   ExternalLinkIcon,
 } from './components/IconButton';
-import apiConfig from './config/api';
 import { useLanguage } from './LanguageContext';
 import { useTheme } from './ThemeContext';
 import MyAds from './BannerAd';
@@ -232,65 +231,8 @@ export default function BookDetail({ route, navigation }) {
         description_kr: book.description_kr || '',
         moreInfo_kr: book.moreInfo_kr || '',
       });
-      setLoading(false);
-
-      // link가 있으면 추가로 API 호출하여 더 자세한 정보 가져오기 (선택적)
-      if (book.link) {
-        const countryKey = country.toLowerCase();
-        const detailUrl =
-          apiConfig.endpoints[`${countryKey}BookDetail`] ||
-          `${apiConfig.baseURL}/${config.apiEndpoint}`;
-        fetch(`${detailUrl}?url=${encodeURIComponent(book.link)}`)
-          .then(res => {
-            if (res.ok) {
-              return res.json();
-            }
-            return null;
-          })
-          .then(data => {
-            if (data) {
-              // API에서 받은 데이터로 기존 details 업데이트 (빈 필드만 채움)
-              setDetails(prev => ({
-                ...prev,
-                authorInfo: data.authorInfo || prev.authorInfo || '',
-                publisherReview:
-                  data.publisherReview || prev.publisherReview || '',
-                description: data.description || prev.description || '',
-                contents: data.contents || prev.contents || '',
-                plot: data.plot || prev.plot || '',
-                tableOfContents:
-                  data.tableOfContents || prev.tableOfContents || '',
-              }));
-            }
-          })
-          .catch(err => {
-            // Optional detail fetch failed, continue without it
-            // 에러가 나도 캐시 데이터는 이미 표시되므로 무시
-          });
-      }
-    } else if (book.link) {
-      // 캐시 데이터가 없고 link만 있는 경우 API 호출
-
-      const countryKey = country.toLowerCase();
-      const detailUrl =
-        apiConfig.endpoints[`${countryKey}BookDetail`] ||
-        `${apiConfig.baseURL}/${config.apiEndpoint}`;
-      fetch(`${detailUrl}?url=${encodeURIComponent(book.link)}`)
-        .then(res => {
-          return res.json();
-        })
-        .then(data => {
-          setDetails(data);
-          setLoading(false);
-        })
-        .catch(err => {
-          console.error('[BookDetail] Detail fetch error:', err.message);
-          setLoading(false);
-        });
-    } else {
-      // 데이터가 전혀 없는 경우
-      setLoading(false);
     }
+    setLoading(false);
   }, [
     book?.link,
     book?.description,
@@ -301,7 +243,6 @@ export default function BookDetail({ route, navigation }) {
     book?.authorInfo_kr,
     book?.description_kr,
     book?.moreInfo_kr,
-    country,
   ]);
 
   // 번역 가져오기
@@ -412,7 +353,7 @@ export default function BookDetail({ route, navigation }) {
                   details?.description ||
                   'Publisher review information is not available.'}
             </Text>
-            <View style={[styles.adContainer, { marginTop: 20 }]}>
+            <View style={[styles.adContainer, { marginTop: 20, marginBottom: 20 }]}>
               <MyAds type="adaptive" size={BannerAdSize.LARGE_BANNER} />
             </View>
           </View>
@@ -571,6 +512,9 @@ export default function BookDetail({ route, navigation }) {
           onRequestClose={() => setWikiModalVisible(false)}
         >
           <View style={styles.modalOverlay}>
+            <View style={[styles.adContainer, { marginBottom: 0 }]}>
+              <MyAds type="adaptive" size={BannerAdSize.BANNER} />
+            </View>
             <View style={styles.modalContainer}>
               <View style={styles.modalHeader}>
                 <TouchableOpacity
@@ -598,34 +542,31 @@ export default function BookDetail({ route, navigation }) {
                   </View>
                 )}
                 injectedJavaScript={`
-            (function() {
-              const adHtml = '<div style="width: 100%; height: 50px; background-color: #FFF9E6; display: flex; justify-content: center; align-items: center; border-top: 1px solid #E0E0E0; border-bottom: 1px solid #E0E0E0; position: sticky; top: 0; z-index: 9999;"><span style="color: #999; font-size: 14px; font-weight: 500;">Banner Ad</span></div>';
-              
-              function insertAd() {
-                const content = document.querySelector('#content') || document.querySelector('.mw-parser-output') || document.querySelector('body');
-                if (content && !document.querySelector('#custom-ad')) {
-                  const adDiv = document.createElement('div');
-                  adDiv.id = 'custom-ad';
-                  adDiv.innerHTML = adHtml;
-                  content.insertBefore(adDiv, content.firstChild);
-                }
-              }
-              
-              if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', insertAd);
-              } else {
-                insertAd();
-              }
-              
-              setTimeout(insertAd, 500);
-              setTimeout(insertAd, 1000);
-            })();
-            true;
-          `}
+                  (function() {
+                    const adHtml = '<div style="width: 100%; height: 50px; background-color: #FFF9E6; display: flex; justify-content: center; align-items: center; border-top: 1px solid #E0E0E0; border-bottom: 1px solid #E0E0E0; position: sticky; top: 0; z-index: 9999;"><span style="color: #999; font-size: 14px; font-weight: 500;">Banner Ad</span></div>';
+                    
+                    function insertAd() {
+                      const content = document.querySelector('#content') || document.querySelector('.mw-parser-output') || document.querySelector('body');
+                      if (content && !document.querySelector('#custom-ad')) {
+                        const adDiv = document.createElement('div');
+                        adDiv.id = 'custom-ad';
+                        adDiv.innerHTML = adHtml;
+                        content.insertBefore(adDiv, content.firstChild);
+                      }
+                    }
+                    
+                    if (document.readyState === 'loading') {
+                      document.addEventListener('DOMContentLoaded', insertAd);
+                    } else {
+                      insertAd();
+                    }
+                    
+                    setTimeout(insertAd, 500);
+                    setTimeout(insertAd, 1000);
+                  })();
+                  true;
+                `}
               />
-            </View>
-            <View style={[styles.adContainer, { marginBottom: 0 }]}>
-              <MyAds type="adaptive" size={BannerAdSize.BANNER} />
             </View>
           </View>
         </Modal>
@@ -911,15 +852,6 @@ const getStyles = (colors, isDark) => StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.primaryBackground,
   },
-  topAdContainer: {
-    height: 60,
-    backgroundColor: isDark ? colors.secondaryBackground : '#FFF9E6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 5,
-    borderRadius: 8,
-  },
   adText: {
     fontSize: 14,
     color: colors.secondaryText,
@@ -927,7 +859,7 @@ const getStyles = (colors, isDark) => StyleSheet.create({
   },
   adContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 5,
     alignItems: 'center',
   },
   imageModalOverlay: {

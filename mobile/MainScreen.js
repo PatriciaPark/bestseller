@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,11 +12,13 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BookmarkScreen from './Bookmark';
-import SettingsPage from './SettingsPage';
+import SettingsPage, { LANGUAGE_OPTIONS } from './SettingsPage';
+import LoadingScreen from './LoadingScreen';
 import { useBookmark } from './BookmarkContext';
 import { useLanguage } from './LanguageContext';
 import { useTheme } from './ThemeContext';
-import apiConfig from './config/api';
+import { BannerAdSize } from 'react-native-google-mobile-ads';
+import MyAds from './BannerAd';
 
 // 번역 데이터 (Google Sheets 기반)
 // 참조: https://docs.google.com/spreadsheets/d/1GoeMU5HbM7g2jujoO5vBI6Z1BH_EjUtnVmV9zWAKpHs/edit?gid=0#gid=0
@@ -98,126 +100,125 @@ const countryTranslations = {
     ESP: 'Espagne',
   },
   english: {
-    USA: 'USA',
-    GBR: 'GBR',
-    FRA: 'FRA',
-    KOR: 'KOR',
-    JPN: 'JPN',
-    CHN: 'CHN',
-    TPE: 'TPE',
-    ESP: 'ESP',
+    USA: 'USA', // Row 3, Column B
+    GBR: 'UK', // Row 5, Column B
+    KOR: 'Korea', // Row 2, Column B
+    JPN: 'Japan', // Row 4, Column B
+    CHN: 'China', // Row 6, Column B
+    TPE: 'Taiwan', // Row 7, Column B
+    FRA: 'France', // Row 8, Column B
+    ESP: 'Spain',
   },
   spanish: {
-    ESP: 'España',  // Row 2, Column G
-    USA: 'USA',     // Row 3, Column G
-    JPN: 'Japón',   // Row 4, Column G
-    GBR: 'Reino Unido', // Row 5, Column G
-    CHN: 'China',   // Row 6, Column G
-    TPE: 'Taiwán',  // Row 7, Column G
-    FRA: 'Francia', // Row 8, Column G
-    KOR: 'Corea',   // Row 2, Column G (한국 - 구글 시트 확인 필요)
+    ESP: 'España',
+    USA: 'EE. UU.',
+    GBR: 'Reino Unido',
+    KOR: 'Corea',
+    JPN: 'Japón',
+    CHN: 'China',
+    TPE: 'Taiwán',
+    FRA: 'Francia',
   },
+};
+
+const COUNTRY_TABS = [
+  { label: 'KOR', index: 0 },
+  { label: 'USA', index: 1 },
+  { label: 'JPN', index: 2 },
+  { label: 'GBR', index: 3 },
+  { label: 'CHN', index: 4 },
+  { label: 'TPE', index: 5 },
+  { label: 'FRA', index: 6 },
+  { label: 'ESP', index: 7 },
+];
+
+const INDEX_TO_COUNTRY_LABEL = {
+  0: 'KOR',
+  1: 'USA',
+  2: 'JPN',
+  3: 'GBR',
+  4: 'CHN',
+  5: 'TPE',
+  6: 'FRA',
+  7: 'ESP',
+};
+
+const COUNTRY_LABEL_TO_INDEX = {
+  'KOR': 0,
+  'USA': 1,
+  'JPN': 2,
+  'GBR': 3,
+  'CHN': 4,
+  'TPE': 5,
+  'FRA': 6,
+  'ESP': 7,
+};
+
+const COUNTRY_INDEX_TO_LABEL_COLUMN = {
+  0: 1, // KOR -> Column B (English)
+  1: 0, // USA -> Column A (Korean)
+  2: 0, // JPN -> Column A (Korean)
+  3: 0, // GBR -> Column A (Korean)
+  4: 0, // CHN -> Column A (Korean)
+  5: 0, // TPE -> Column A (Korean)
+  6: 0, // FRA -> Column A (Korean)
+  7: 0, // ESP -> Column A (Korean)
 };
 
 export default function MainScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('home');
-  const [activeCountryTab, setActiveCountryTab] = useState('KOR');
-  const [books, setBooks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [language, setLanguage] = useState('original'); // 'korean' or 'original'
-  const [appLanguage, setAppLanguage] = useState('English'); // 앱 언어 설정
   const { isBookmarked, toggleBookmark } = useBookmark();
-  const { columnHeaders } = useLanguage(); // LanguageContext 사용 (필요시)
-  const { colors, isDark } = useTheme();
-  const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
+  const {
+    country,
+    setCountry,
+    language,
+    setLanguage,
+    userLanguage,
+    filteredData,
+    originalLangs,
+    loading,
+    error,
+    fetchSheets,
+  } = useLanguage();
 
-  // 한국어/Original 토글 설정 불러오기 및 저장
-  useEffect(() => {
-    const loadLanguageToggle = async () => {
-      try {
-        const savedLanguage = await AsyncStorage.getItem('bookLanguageToggle');
-        if (savedLanguage) {
-          setLanguage(savedLanguage);
-        }
-      } catch (error) {
-        console.error('[MainScreen] Failed to load language toggle:', error);
-      }
-    };
-    loadLanguageToggle();
-  }, []);
+  const activeCountryTab = useMemo(
+    () => INDEX_TO_COUNTRY_LABEL[country] ?? 'KOR',
+    [country]
+  );
 
-  // 언어 토글 변경 시 저장
-  const handleLanguageToggle = async (newLanguage) => {
-    setLanguage(newLanguage);
-    try {
-      await AsyncStorage.setItem('bookLanguageToggle', newLanguage);
-    } catch (error) {
-      console.error('[MainScreen] Failed to save language toggle:', error);
+  const books = useMemo(
+    () =>
+      filteredData.map(row => ({
+        image: row[0] || '',
+        title: row[1] || '',
+        author: row[2] || '',
+        authorInfo: row[3] || '',
+        description: row[4] || '',
+        moreInfo: row[5] || '',
+      })),
+    [filteredData]
+  );
+
+  const userLanguageLabel = useMemo(() => {
+    const option = LANGUAGE_OPTIONS.find(opt => opt.value === userLanguage);
+    return option ? option.label : '한국어';
+  }, [userLanguage]);
+
+  const originalLanguageIndex = COUNTRY_INDEX_TO_LABEL_COLUMN[country] ?? 1;
+  
+  const originalLabel = useMemo(() => {
+    if (originalLangs && originalLangs[userLanguage]) {
+      return originalLangs[userLanguage];
+    }
+    return 'Original';
+  }, [userLanguage, originalLangs]);
+
+  const setCountryByLabel = label => {
+    const nextIndex = COUNTRY_LABEL_TO_INDEX[label];
+    if (typeof nextIndex === 'number') {
+      setCountry(nextIndex);
     }
   };
-
-  // 앱 언어 설정 불러오기
-  useEffect(() => {
-    const loadAppLanguage = async () => {
-      try {
-        const savedLanguage = await AsyncStorage.getItem('appLanguage');
-        if (savedLanguage) {
-          setAppLanguage(savedLanguage);
-        }
-      } catch (error) {
-        console.error('[MainScreen] Failed to load app language:', error);
-      }
-    };
-    loadAppLanguage();
-
-    // 화면이 포커스될 때마다 언어 설정 다시 불러오기
-    const unsubscribe = navigation.addListener('focus', () => {
-      loadAppLanguage();
-    });
-
-    return unsubscribe;
-  }, [navigation]);
-
-  // 📘 베스트셀러 데이터 가져오기 (Home 탭일 때만)
-  useEffect(() => {
-    if (activeTab !== 'home') {
-      return;
-    }
-
-    const fetchBooks = async () => {
-      setLoading(true);
-      try {
-        let url = '';
-        if (activeCountryTab === 'KOR') {
-          url = apiConfig.endpoints.krBooks;
-        } else if (activeCountryTab === 'JPN') {
-          url = apiConfig.endpoints.jpBooks;
-        } else if (activeCountryTab === 'USA') {
-          url = apiConfig.endpoints.usBooks;
-        } else if (activeCountryTab === 'TPE') {
-          url = apiConfig.endpoints.twBooks;
-        } else if (activeCountryTab === 'FRA') {
-          url = apiConfig.endpoints.frBooks;
-        } else if (activeCountryTab === 'GBR') {
-          url = apiConfig.endpoints.ukBooks;
-        } else if (activeCountryTab === 'CHN') {
-          url = apiConfig.endpoints.chBooks;
-        } else if (activeCountryTab === 'ESP') {
-          url = apiConfig.endpoints.esBooks;
-        }
-
-        const res = await fetch(url);
-        const data = await res.json();
-        setBooks(data.books || []);
-        setLoading(false);
-      } catch (err) {
-        console.error('[MainScreen] Fetch error:', err.message);
-        setLoading(false);
-      }
-    };
-
-    fetchBooks();
-  }, [activeTab, activeCountryTab]);
 
   // 📚 책 아이템 렌더링
   const renderBookItem = ({ item, index }) => {
@@ -263,14 +264,9 @@ export default function MainScreen({ navigation }) {
               authorInfo: item.authorInfo,
               publisherReview: item.publisherReview,
               plot: item.plot,
-              // 한국어 필드 전달
-              title_kr: item.title_kr,
-              author_kr: item.author_kr,
-              authorInfo_kr: item.authorInfo_kr,
-              description_kr: item.description_kr,
-              moreInfo_kr: item.moreInfo_kr,
+              other: item.moreInfo,
+              rank: index + 1,
             },
-            language: language, // 언어 토글 상태 전달
           });
         }}
       >
@@ -288,10 +284,10 @@ export default function MainScreen({ navigation }) {
 
         <View style={styles.bookInfo}>
           <Text style={styles.bookTitle} numberOfLines={2}>
-            {language === 'korean' && item.title_kr ? item.title_kr : item.title}
+            {item.title}
           </Text>
           <Text style={styles.bookAuthor} numberOfLines={1}>
-            {language === 'korean' && item.author_kr ? item.author_kr : (item.author || 'Unknown Author')}
+            {item.author || 'Unknown Author'}
           </Text>
           {item.publisher && (
             <Text style={styles.bookMeta} numberOfLines={1}>
@@ -300,7 +296,7 @@ export default function MainScreen({ navigation }) {
           )}
           {item.description && (
             <Text style={styles.bookDescription} numberOfLines={2}>
-              {language === 'korean' && item.description_kr ? item.description_kr : item.description}
+              {item.description}
             </Text>
           )}
         </View>
@@ -322,6 +318,7 @@ export default function MainScreen({ navigation }) {
               authorInfo: item.authorInfo,
               publisherReview: item.publisherReview,
               plot: item.plot,
+              other: item.moreInfo,
             };
             toggleBookmark(bookData);
           }}
@@ -329,7 +326,7 @@ export default function MainScreen({ navigation }) {
           <Icon
             name={isBookmarked(item.title) ? 'star' : 'star-outline'}
             size={24}
-            color={isBookmarked(item.title) ? '#FFD700' : colors.secondaryText}
+            color={isBookmarked(item.title) ? '#FFD700' : '#999'}
           />
         </TouchableOpacity>
       </TouchableOpacity>
@@ -338,10 +335,26 @@ export default function MainScreen({ navigation }) {
 
   const renderHomeContent = () => {
     if (loading) {
+      return <LoadingScreen />;
+    }
+
+    if (error) {
       return (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.link} />
-          <Text style={{ color: colors.secondaryText, marginTop: 10 }}>불러오는 중...</Text>
+          <Text style={{ color: '#d32f2f', marginBottom: 12 }}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchSheets}>
+            <Text style={styles.retryText}>다시 시도</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    const visibleBooks = books.slice(0, 20);
+
+    if (!visibleBooks.length) {
+      return (
+        <View style={styles.center}>
+          <Text style={{ color: '#666' }}>표시할 데이터가 없습니다.</Text>
         </View>
       );
     }
@@ -350,190 +363,72 @@ export default function MainScreen({ navigation }) {
       <View style={styles.homeContainer}>
         {/* 상단 헤더 */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>
-            {(() => {
-              const languageMap = {
-                Korean: 'korean',
-                English: 'english',
-                Japanese: 'japanese',
-                Chinese: 'chinese',
-                'Traditional Chinese': 'traditionalChinese',
-                French: 'french',
-                spanish: 'spanish',
-              };
-              const langKey = languageMap[appLanguage] || 'english';
-              return (
-                translations[langKey]?.bestSellers ||
-                translations.english.bestSellers
-              );
-            })()}
-          </Text>
+          <Text style={styles.headerTitle}>Best Sellers</Text>
           <View style={styles.languageToggle}>
             <TouchableOpacity
               style={[
                 styles.languageOption,
-                language === 'korean' && styles.languageOptionActive,
+                language === (userLanguage + 1) && styles.languageOptionActive
               ]}
-              onPress={() => handleLanguageToggle('korean')}
+              onPress={() => setLanguage(userLanguage + 1)}
             >
-              <Text
-                style={[
-                  styles.languageText,
-                  language === 'korean' && styles.languageTextActive,
-                ]}
-              >
-                한국어
+              <Text style={[
+                styles.languageText,
+                language === (userLanguage + 1) && styles.languageTextActive
+              ]}>
+              {userLanguageLabel}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.languageOption,
-                language === 'original' && styles.languageOptionActive,
+                language === 0 && styles.languageOptionActive
               ]}
-              onPress={() => handleLanguageToggle('original')}
+              onPress={() => setLanguage(0)}
             >
-              <Text
-                style={[
-                  styles.languageText,
-                  language === 'original' && styles.languageTextActive,
-                ]}
-              >
-                Original
+              <Text style={[
+                styles.languageText,
+                language === 0 && styles.languageTextActive
+              ]}>
+              {originalLabel}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* 국가 선택 탭 */}
-        <View style={styles.tabContainerWrapper}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabContainer}
-          >
-            {(() => {
-              // 언어에 따른 국가 순서 및 번역 가져오기
-              const getCountryOrder = () => {
-                const languageMap = {
-                  Korean: 'korean',
-                  English: 'english',
-                  Japanese: 'japanese',
-                  Chinese: 'chinese',
-                  'Traditional Chinese': 'traditionalChinese',
-                  French: 'french',
-                  Spanish: 'spanish',
-                  spanish: 'spanish', // 하위 호환성
-                };
-                const langKey = languageMap[appLanguage] || 'english';
-                const translations =
-                  countryTranslations[langKey] || countryTranslations.english;
-
-                // 언어별 국가 순서 (ISO 표준 약어: KOR, JPN, USA, TPE, FRA, GBR, CHN)
-                const orders = {
-                  korean: [
-                    'KOR',  // 한국
-                    'USA',  // 미국
-                    'JPN',  // 일본
-                    'GBR',  // 영국
-                    'CHN',  // 중국
-                    'TPE',  // 대만
-                    'FRA',  // 프랑스
-                  ],
-                  japanese: [
-                    'JPN',  // 日本
-                    'USA',  // 美国
-                    'KOR',  // 韓国
-                    'CHN',  // 中国
-                    'TPE',  // 台湾
-                    'GBR',  // 英国
-                    'FRA',  // 仏国
-                  ],
-                  chinese: [
-                    'CHN',  // 中国
-                    'TPE',  // 台湾
-                    'USA',  // 美国
-                    'JPN',  // 日本
-                    'KOR',  // 韩国
-                    'GBR',  // 英国
-                    'FRA',  // 法国
-                  ],
-                  traditionalChinese: [
-                    'TPE',  // 台灣
-                    'CHN',  // 中國
-                    'USA',  // 美國
-                    'JPN',  // 日本
-                    'KOR',  // 韓國
-                    'GBR',  // 英國
-                    'FRA',  // 法國
-                  ],
-                  french: [
-                    'FRA',  // France
-                    'USA',  // USA
-                    'GBR',  // UK
-                    'KOR',  // Corée
-                    'JPN',  // Japon
-                    'CHN',  // Chine
-                    'TPE',  // Taïwan
-                  ],
-                  english: [
-                    'USA',  // USA
-                    'GBR',  // GBR
-                    'FRA',  // FRA
-                    'KOR',  // KOR
-                    'JPN',  // JPN
-                    'CHN',  // CHN
-                    'TPE',  // TPE
-                  ],
-                  spanish: [
-                    'ESP',  // España (스페인)
-                    'USA',  // USA
-                    'JPN',  // Japón
-                    'GBR',  // Reino Unido
-                    'CHN',  // China
-                    'TPE',  // Taiwán
-                    'FRA',  // Francia
-                  ],
-                };
-
-                return {
-                  order: orders[langKey] || orders.english,
-                  translations,
-                };
-              };
-
-              const { order, translations } = getCountryOrder();
-
-              return order.map(countryCode => (
-                <TouchableOpacity
-                  key={countryCode}
-                  style={[
-                    styles.countryTab,
-                    activeCountryTab === countryCode && styles.activeCountryTab,
-                  ]}
-                  onPress={() => setActiveCountryTab(countryCode)}
-                >
-                  <Text
-                    style={[
-                      styles.countryTabText,
-                      activeCountryTab === countryCode &&
-                        styles.activeCountryTabText,
-                    ]}
-                  >
-                    {translations[countryCode] || countryCode}
-                  </Text>
-                </TouchableOpacity>
-              ));
-            })()}
-          </ScrollView>
+        <View style={styles.tabContainer}>
+          {COUNTRY_TABS.map(tab => (
+            <TouchableOpacity
+              key={tab.label}
+              style={[styles.countryTab, activeCountryTab === tab.label && styles.activeCountryTab]}
+              onPress={() => setCountryByLabel(tab.label)}
+            >
+              <Text
+                style={[styles.countryTabText, activeCountryTab === tab.label && styles.activeCountryTabText]}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* 책 목록 */}
         <FlatList
-          data={books.slice(0, 20)}
+          ListHeaderComponent={
+            <View style={styles.adContainer}>
+              <MyAds type="adaptive" size={BannerAdSize.BANNER} />
+            </View>
+          }
+          data={visibleBooks}
           renderItem={renderBookItem}
-          keyExtractor={(item, index) => `${activeCountryTab}-${index}-${language}`}
-          extraData={language}
+          keyExtractor={(item, index) => `${activeCountryTab}-${index}`}
           contentContainerStyle={styles.listContainer}
+          ListFooterComponent={
+            <View style={styles.adContainer}>
+              <MyAds type="adaptive" size={BannerAdSize.MEDIUM_RECTANGLE} />
+            </View>
+          }
         />
       </View>
     );
@@ -554,25 +449,22 @@ export default function MainScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.contentContainer}>{renderContent()}</View>
-
+      <View style={styles.contentContainer}>
+        {renderContent()}
+      </View>
+      
       {/* 하단 네비게이션 */}
       <View style={styles.bottomNav}>
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => setActiveTab('home')}
         >
-          <Icon
-            name="home-outline"
-            size={24}
-            color={activeTab === 'home' ? colors.link : colors.secondaryText}
+          <Icon 
+            name="home-outline" 
+            size={24} 
+            color={activeTab === 'home' ? '#4285F4' : '#666'} 
           />
-          <Text
-            style={[
-              styles.navLabel,
-              activeTab === 'home' && styles.activeNavLabel,
-            ]}
-          >
+          <Text style={[styles.navLabel, activeTab === 'home' && styles.activeNavLabel]}>
             Home
           </Text>
         </TouchableOpacity>
@@ -580,17 +472,12 @@ export default function MainScreen({ navigation }) {
           style={styles.navItem}
           onPress={() => setActiveTab('bookmark')}
         >
-          <Icon
-            name="bookmark-outline"
-            size={24}
-            color={activeTab === 'bookmark' ? colors.link : colors.secondaryText}
+          <Icon 
+            name="bookmark-outline" 
+            size={24} 
+            color={activeTab === 'bookmark' ? '#4285F4' : '#666'} 
           />
-          <Text
-            style={[
-              styles.navLabel,
-              activeTab === 'bookmark' && styles.activeNavLabel,
-            ]}
-          >
+          <Text style={[styles.navLabel, activeTab === 'bookmark' && styles.activeNavLabel]}>
             Bookmarks
           </Text>
         </TouchableOpacity>
@@ -598,17 +485,12 @@ export default function MainScreen({ navigation }) {
           style={styles.navItem}
           onPress={() => setActiveTab('settings')}
         >
-          <Icon
-            name="cog-outline"
-            size={24}
-            color={activeTab === 'settings' ? colors.link : colors.secondaryText}
+          <Icon 
+            name="cog-outline" 
+            size={24} 
+            color={activeTab === 'settings' ? '#4285F4' : '#666'} 
           />
-          <Text
-            style={[
-              styles.navLabel,
-              activeTab === 'settings' && styles.activeNavLabel,
-            ]}
-          >
+          <Text style={[styles.navLabel, activeTab === 'settings' && styles.activeNavLabel]}>
             Settings
           </Text>
         </TouchableOpacity>
@@ -617,11 +499,10 @@ export default function MainScreen({ navigation }) {
   );
 }
 
-// 스타일을 함수로 변경하여 테마에 따라 동적으로 생성
-const getStyles = (colors, isDark) => StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.primaryBackground,
+    backgroundColor: '#fff',
   },
   contentContainer: {
     flex: 1,
@@ -629,13 +510,23 @@ const getStyles = (colors, isDark) => StyleSheet.create({
   },
   homeContainer: {
     flex: 1,
-    backgroundColor: colors.primaryBackground,
+    backgroundColor: '#fff',
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.primaryBackground,
+    backgroundColor: '#fff',
+  },
+  retryButton: {
+    backgroundColor: '#4285F4',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: '#fff',
+    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',
@@ -644,22 +535,22 @@ const getStyles = (colors, isDark) => StyleSheet.create({
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
-    backgroundColor: colors.primaryBackground,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#E0E0E0',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.text,
+    color: '#000',
   },
   languageToggle: {
     flexDirection: 'row',
-    backgroundColor: isDark ? '#1e293b' : '#fff',
+    backgroundColor: '#fff',
     borderRadius: 20,
     padding: 2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#E0E0E0',
   },
   languageOption: {
     paddingHorizontal: 16,
@@ -667,25 +558,28 @@ const getStyles = (colors, isDark) => StyleSheet.create({
     borderRadius: 18,
   },
   languageOptionActive: {
-    backgroundColor: isDark ? '#1a1f2e' : '#4285F4',
+    backgroundColor: '#4285F4',
   },
   languageText: {
     fontSize: 13,
-    color: colors.secondaryText,
+    color: '#999',
     fontWeight: '500',
   },
   languageTextActive: {
     color: '#fff',
     fontWeight: '600',
   },
-  tabContainerWrapper: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+  adContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
   },
   tabContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
     paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
   },
   countryTab: {
     marginRight: 30,
@@ -693,15 +587,15 @@ const getStyles = (colors, isDark) => StyleSheet.create({
   },
   activeCountryTab: {
     borderBottomWidth: 2,
-    borderBottomColor: colors.link,
+    borderBottomColor: '#4285F4',
   },
   countryTabText: {
     fontSize: 16,
-    color: colors.secondaryText,
+    color: '#666',
     fontWeight: '500',
   },
   activeCountryTabText: {
-    color: colors.link,
+    color: '#4285F4',
     fontWeight: 'bold',
   },
   listContainer: {
@@ -713,7 +607,7 @@ const getStyles = (colors, isDark) => StyleSheet.create({
     marginBottom: 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#F0F0F0',
   },
   rankContainer: {
     width: 30,
@@ -723,7 +617,7 @@ const getStyles = (colors, isDark) => StyleSheet.create({
   rank: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text,
+    color: '#000',
   },
   bookImage: {
     width: 80,
@@ -735,14 +629,14 @@ const getStyles = (colors, isDark) => StyleSheet.create({
   imagePlaceholder: {
     width: 80,
     height: 120,
-    backgroundColor: colors.secondaryBackground,
+    backgroundColor: '#E0E0E0',
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
   },
   placeholderText: {
-    color: colors.secondaryText,
+    color: '#999',
     fontSize: 12,
   },
   bookInfo: {
@@ -752,23 +646,23 @@ const getStyles = (colors, isDark) => StyleSheet.create({
   bookTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: colors.text,
+    color: '#000',
     marginBottom: 5,
     lineHeight: 22,
   },
   bookAuthor: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: '#666',
     marginBottom: 4,
   },
   bookMeta: {
     fontSize: 12,
-    color: colors.secondaryText,
+    color: '#999',
     marginBottom: 8,
   },
   bookDescription: {
     fontSize: 13,
-    color: colors.secondaryText,
+    color: '#666',
     lineHeight: 18,
   },
   bookmarkIcon: {
@@ -785,9 +679,9 @@ const getStyles = (colors, isDark) => StyleSheet.create({
     justifyContent: 'space-around',
     paddingVertical: 15,
     paddingBottom: 25,
-    backgroundColor: colors.primaryBackground,
+    backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: '#E0E0E0',
     zIndex: 1000,
   },
   navItem: {
@@ -795,10 +689,10 @@ const getStyles = (colors, isDark) => StyleSheet.create({
   },
   navLabel: {
     fontSize: 12,
-    color: colors.secondaryText,
+    color: '#666',
   },
   activeNavLabel: {
-    color: colors.link,
+    color: '#4285F4',
     fontWeight: 'bold',
   },
 });
