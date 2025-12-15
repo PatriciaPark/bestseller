@@ -1,0 +1,46 @@
+name: Web Scrapper Runner
+
+on:
+  schedule:
+    - cron: "0 23 * * *"   # 23:00 UTC = 08:00 KST next day
+  workflow_dispatch:
+
+jobs:
+  run-daily-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install puppeteer googleapis google-auth-library puppeteer-extra puppeteer-extra-plugin-stealth
+
+      - name: Determine script to run
+        id: pick
+        run: |
+          # Get day of week in Korea Time
+          DAY=$(TZ="Asia/Seoul" date +%u)
+          echo "DAY=$DAY" >> $GITHUB_OUTPUT
+
+          if [ "$DAY" -eq 1 ]; then echo "SCRIPT=backend/scrappers/usScrapper.js" >> $GITHUB_OUTPUT; fi
+          if [ "$DAY" -eq 1 ]; then echo "SCRIPT=backend/scrappers/kyoboScrapper.js" >> $GITHUB_OUTPUT; fi
+          if [ "$DAY" -eq 2 ]; then echo "SCRIPT=backend/scrappers/japanScrapper.js" >> $GITHUB_OUTPUT; fi
+          if [ "$DAY" -eq 3 ]; then echo "SCRIPT=backend/scrappers/ukScrapper.js" >> $GITHUB_OUTPUT; fi
+          # if [ "$DAY" -eq 4 ]; then echo "SCRIPT=backend/scrappers/spainScrapper.js" >> $GITHUB_OUTPUT; fi
+          if [ "$DAY" -eq 5 ]; then echo "SCRIPT=backend/scrappers/chinaScrapper.js" >> $GITHUB_OUTPUT; fi
+          if [ "$DAY" -eq 6 ]; then echo "SCRIPT=backend/scrappers/franceScrapper.js" >> $GITHUB_OUTPUT; fi
+          if [ "$DAY" -eq 7 ]; then echo "SCRIPT=backend/scrappers/taiwan.js" >> $GITHUB_OUTPUT; fi
+
+      - name: Run the day-specific script
+        run: node ${{ steps.pick.outputs.SCRIPT }}
+
+      - name: Run update sheet script
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+        run: node backend/uploadToGoogle.js
