@@ -86,7 +86,12 @@ export default async function chinaScrapper() {
         });
     }
 
-    const resultPath = path.join(process.cwd(), '../json_results/china.json');
+    const outputDir = path.join(process.cwd(), 'json_results');
+        // Create folder if it doesn't exist
+        if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+        }
+    const resultPath = path.join(outputDir, 'china.json');
     const sanitized = books.map(toPublicBook);
     fs.writeFileSync(resultPath, JSON.stringify(sanitized, null, 2), 'utf-8');
 

@@ -82,7 +82,12 @@ export default async function japanScrapper() {
         });
     }
 
-    const resultPath = path.join(process.cwd(), '../json_results/japan.json');
+    const outputDir = path.join(process.cwd(), 'json_results');
+        // Create folder if it doesn't exist
+        if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+        }
+    const resultPath = path.join(outputDir, 'japan.json');
     const sanitized = books.map(toPublicBook);
     fs.writeFileSync(resultPath, JSON.stringify(sanitized, null, 2), 'utf-8');
 

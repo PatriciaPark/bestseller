@@ -91,7 +91,12 @@ export default async function kyoboScrapper() {
     other: book.other || '',
   });
 
-  const resultPath = path.join(process.cwd(), '../json_results/korea.json');
+  const outputDir = path.join(process.cwd(), 'json_results');
+    // Create folder if it doesn't exist
+    if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+    }
+  const resultPath = path.join(outputDir, 'korea.json');
   fs.writeFileSync(resultPath, JSON.stringify(books.map(toPublicBook), null, 2), 'utf-8');
 
   console.log(`✅ Crawled ${books.length} books`);

@@ -80,7 +80,12 @@ async function fetchBooksMain() {
 
 
   // --------------------- result_uk.json에 저장 ---------------------
-  const resultPath = path.join(process.cwd(), '../json_results/uk.json');
+  const outputDir = path.join(process.cwd(), 'json_results');
+  // Create folder if it doesn't exist
+  if (!fs.existsSync(outputDir)) {
+  fs.mkdirSync(outputDir, { recursive: true });
+  }
+  const resultPath = path.join(outputDir, 'uk.json');
   fs.writeFileSync(resultPath, JSON.stringify(books.map(toPublicBook), null, 2), "utf-8");
   console.log(`Total ${books.length} of books saved to ${resultPath}.`);
   console.log(`📆 Date ${date.getDate()}`);
