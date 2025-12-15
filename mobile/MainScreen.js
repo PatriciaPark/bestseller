@@ -186,6 +186,26 @@ export default function MainScreen({ navigation }) {
     [country]
   );
 
+  const orderedCountryTabs = useMemo(() => {
+    let order = ['KOR', 'USA', 'JPN', 'GBR', 'CHN', 'TPE', 'FRA', 'ESP'];
+    
+    if (userLanguage === 1) { // English
+      order = ['USA', 'GBR', 'KOR', 'JPN', 'CHN', 'TPE', 'FRA', 'ESP'];
+    } else if (userLanguage === 2) { // Japanese
+      order = ['JPN', 'USA', 'KOR', 'GBR', 'CHN', 'TPE', 'FRA', 'ESP'];
+    } else if (userLanguage === 3) { // Chinese
+      order = ['CHN', 'USA', 'KOR', 'JPN', 'GBR', 'TPE', 'FRA', 'ESP'];
+    } else if (userLanguage === 4) { // Traditional Chinese
+      order = ['TPE', 'USA', 'KOR', 'JPN', 'GBR', 'CHN', 'FRA', 'ESP'];
+    } else if (userLanguage === 5) { // French
+      order = ['FRA', 'USA', 'GBR', 'KOR', 'JPN', 'CHN', 'TPE', 'ESP'];
+    } else if (userLanguage === 6) { // Spanish
+      order = ['ESP', 'USA', 'GBR', 'KOR', 'JPN', 'CHN', 'TPE', 'FRA'];
+    }
+
+    return order.map(label => COUNTRY_TABS.find(tab => tab.label === label));
+  }, [userLanguage]);
+
   const books = useMemo(
     () =>
       filteredData.map(row => ({
@@ -398,7 +418,7 @@ export default function MainScreen({ navigation }) {
 
         {/* 국가 선택 탭 */}
         <View style={styles.tabContainer}>
-          {COUNTRY_TABS.map(tab => (
+          {orderedCountryTabs.map(tab => (
             <TouchableOpacity
               key={tab.label}
               style={[styles.countryTab, activeCountryTab === tab.label && styles.activeCountryTab]}
