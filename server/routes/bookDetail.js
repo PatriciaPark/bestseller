@@ -833,6 +833,8 @@ router.get('/fr-book-detail', async (req, res) => {
     });
   }
 });
+
+// 스페인 책 상세정보
 router.get('/es-book-detail', async (req, res) => {
   try {
     const { url } = req.query;
