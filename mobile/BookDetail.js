@@ -159,6 +159,20 @@ export default function BookDetail({ route, navigation }) {
       </View>
     );
   }
+  // 국가에 따른 Wikipedia 언어 매핑
+  const getCountryWikiLang = country => {
+    const countryLangMap = {
+      KR: 'ko',
+      US: 'en',
+      UK: 'en',
+      JP: 'ja',
+      CN: 'zh',
+      TW: 'zh',
+      FR: 'fr',
+      ES: 'es',
+    };
+    return countryLangMap[country] || 'en';
+  };
 
   const country = book.country || 'US';
   const config = COUNTRY_CONFIG[country] || COUNTRY_CONFIG.US;
@@ -187,12 +201,20 @@ export default function BookDetail({ route, navigation }) {
 
   //위키피디아 함수(웹뷰.모달-mary)
   const searchAuthor = authorName => {
-    if (!authorName || authorName === '저자 정보 없음') {
+    if (
+      !authorName ||
+      authorName === '저자 정보 없음' ||
+      authorName === 'Unknown Author'
+    ) {
       return;
     }
-    const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(
-      authorName,
+
+    // 책의 국가에 맞는 Wikipedia 사용
+    const wikiLang = getCountryWikiLang(country);
+    const url = `https://${wikiLang}.wikipedia.org/wiki/${encodeURIComponent(
+      book.author,
     )}`;
+
     setWikiUrl(url);
     setWikiType('author');
     setWikiModalVisible(true);
@@ -202,12 +224,17 @@ export default function BookDetail({ route, navigation }) {
     if (!title) {
       return;
     }
-    const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`;
+
+    // 책의 국가에 맞는 Wikipedia 사용
+    const wikiLang = getCountryWikiLang(country);
+    const url = `https://${wikiLang}.wikipedia.org/wiki/${encodeURIComponent(
+      book.title,
+    )}`;
+
     setWikiUrl(url);
     setWikiType('title');
     setWikiModalVisible(true);
   };
-
   // 책 상세 정보 가져오기
   useEffect(() => {
     // 먼저 book 객체에 이미 상세 정보가 있는지 확인 (캐시 데이터)
@@ -444,33 +471,34 @@ export default function BookDetail({ route, navigation }) {
               )}
             </View>
             <View style={styles.bookInfo}>
-              <TouchableOpacity
-                onPress={() =>
-                  searchTitle(
-                    language === 'korean' && book.title_kr
-                      ? book.title_kr
-                      : book.title,
-                  )
-                }
-              >
+              {/* 현재 언어에 맞는 번역된 제목/작가 표시 */}
+              <TouchableOpacity onPress={() => searchTitle(book.title)}>
                 <Text style={styles.title}>
                   {language === 'korean' && book.title_kr
                     ? book.title_kr
+                    : language === 'japanese' && book.title_ja
+                    ? book.title_ja
+                    : language === 'chinese' && book.title_zh
+                    ? book.title_zh
+                    : language === 'french' && book.title_fr
+                    ? book.title_fr
+                    : language === 'spanish' && book.title_es
+                    ? book.title_es
                     : book.title}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() =>
-                  searchAuthor(
-                    language === 'korean' && book.author_kr
-                      ? book.author_kr
-                      : book.author,
-                  )
-                }
-              >
+              <TouchableOpacity onPress={() => searchAuthor(book.author)}>
                 <Text style={styles.author}>
                   {language === 'korean' && book.author_kr
                     ? book.author_kr
+                    : language === 'japanese' && book.author_ja
+                    ? book.author_ja
+                    : language === 'chinese' && book.author_zh
+                    ? book.author_zh
+                    : language === 'french' && book.author_fr
+                    ? book.author_fr
+                    : language === 'spanish' && book.author_es
+                    ? book.author_es
                     : book.author || 'Unknown Author'}
                 </Text>
               </TouchableOpacity>
@@ -563,41 +591,92 @@ export default function BookDetail({ route, navigation }) {
                 <View style={{ width: 32 }} />
               </View>
               <WebView
-                source={{
-                  uri: wikiUrl,
-                }}
+                source={{ uri: wikiUrl }}
                 style={styles.webView}
                 startInLoadingState={true}
+                onError={syntheticEvent => {
+                  const { nativeEvent } = syntheticEvent;
+                  console.warn('WebView error:', nativeEvent);
+                  setTimeout(() => {
+                    setWikiModalVisible(false);
+                  }, 1000);
+                }}
+                onHttpError={syntheticEvent => {
+                  const { nativeEvent } = syntheticEvent;
+                  if (nativeEvent.statusCode === 404) {
+                    console.warn('Page not found');
+                    setTimeout(() => {
+                      setWikiModalVisible(false);
+                    }, 1000);
+                  }
+                }}
+                onMessage={event => {
+                  // JavaScript에서 보낸 메시지 수신
+                  if (event.nativeEvent.data === 'PAGE_NOT_FOUND') {
+                    setWikiModalVisible(false);
+                  }
+                }}
                 renderLoading={() => (
                   <View style={styles.webViewLoading}>
                     <ActivityIndicator size="large" color="#4285F4" />
                   </View>
                 )}
                 injectedJavaScript={`
-                  (function() {
-                    const adHtml = '<div style="width: 100%; height: 50px; background-color: #FFF9E6; display: flex; justify-content: center; align-items: center; border-top: 1px solid #E0E0E0; border-bottom: 1px solid #E0E0E0; position: sticky; top: 0; z-index: 9999;"><span style="color: #999; font-size: 14px; font-weight: 500;">Banner Ad</span></div>';
-                    
-                    function insertAd() {
-                      const content = document.querySelector('#content') || document.querySelector('.mw-parser-output') || document.querySelector('body');
-                      if (content && !document.querySelector('#custom-ad')) {
-                        const adDiv = document.createElement('div');
-                        adDiv.id = 'custom-ad';
-                        adDiv.innerHTML = adHtml;
-                        content.insertBefore(adDiv, content.firstChild);
-                      }
-                    }
-                    
-                    if (document.readyState === 'loading') {
-                      document.addEventListener('DOMContentLoaded', insertAd);
-                    } else {
-                      insertAd();
-                    }
-                    
-                    setTimeout(insertAd, 500);
-                    setTimeout(insertAd, 1000);
-                  })();
-                  true;
-                `}
+    (function() {
+      // Banner Ad 삽입
+      const adHtml = '<div style="width: 100%; height: 50px; background-color: #FFF9E6; display: flex; justify-content: center; align-items: center; border-top: 1px solid #E0E0E0; border-bottom: 1px solid #E0E0E0; position: sticky; top: 0; z-index: 9999;"><span style="color: #999; font-size: 14px; font-weight: 500;">Banner Ad</span></div>';
+      
+      function insertAd() {
+        const content = document.querySelector('#content') || document.querySelector('.mw-parser-output') || document.querySelector('body');
+        if (content && !document.querySelector('#custom-ad')) {
+          const adDiv = document.createElement('div');
+          adDiv.id = 'custom-ad';
+          adDiv.innerHTML = adHtml;
+          content.insertBefore(adDiv, content.firstChild);
+        }
+      }
+      
+      // 404 페이지 감지
+      function checkPageNotFound() {
+        const bodyText = document.body.innerText || document.body.textContent;
+        
+        // 여러 언어의 "페이지 없음" 메시지 감지
+        const notFoundPatterns = [
+          'does not have an article',
+          'Wikipedia does not have',
+          '문서가 없습니다',
+          '項目不存在',
+          'ページが見つかりません',
+          "n'existe pas",
+          'no existe'
+        ];
+        
+        const isNotFound = notFoundPatterns.some(pattern => 
+          bodyText.toLowerCase().includes(pattern.toLowerCase())
+        );
+        
+        if (isNotFound) {
+          // React Native로 메시지 전송
+          window.ReactNativeWebView.postMessage('PAGE_NOT_FOUND');
+        }
+      }
+      
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+          insertAd();
+          setTimeout(checkPageNotFound, 1000);
+        });
+      } else {
+        insertAd();
+        setTimeout(checkPageNotFound, 1000);
+      }
+      
+      setTimeout(insertAd, 500);
+      setTimeout(insertAd, 1000);
+      setTimeout(checkPageNotFound, 2000);
+    })();
+    true;
+  `}
               />
             </View>
           </View>
