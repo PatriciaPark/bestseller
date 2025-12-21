@@ -28,14 +28,34 @@ jobs:
           DAY=$(TZ="Asia/Seoul" date +%u)
           echo "DAY=$DAY" >> $GITHUB_OUTPUT
 
-          if [ "$DAY" -eq 1 ]; then echo "SCRIPT=backend/scrappers/usScrapper.js" >> $GITHUB_OUTPUT; fi
-          if [ "$DAY" -eq 1 ]; then echo "SCRIPT=backend/scrappers/kyoboScrapper.js" >> $GITHUB_OUTPUT; fi
-          if [ "$DAY" -eq 2 ]; then echo "SCRIPT=backend/scrappers/japanScrapper.js" >> $GITHUB_OUTPUT; fi
-          if [ "$DAY" -eq 3 ]; then echo "SCRIPT=backend/scrappers/ukScrapper.js" >> $GITHUB_OUTPUT; fi
-          if [ "$DAY" -eq 4 ]; then echo "SCRIPT=backend/scrappers/spainScrapper.js" >> $GITHUB_OUTPUT; fi
-          if [ "$DAY" -eq 5 ]; then echo "SCRIPT=backend/scrappers/chinaScrapper.js" >> $GITHUB_OUTPUT; fi
-          if [ "$DAY" -eq 6 ]; then echo "SCRIPT=backend/scrappers/franceScrapper.js" >> $GITHUB_OUTPUT; fi
-          if [ "$DAY" -eq 7 ]; then echo "SCRIPT=backend/scrappers/taiwan.js" >> $GITHUB_OUTPUT; fi
+          if [ "$DAY" -eq 1 ]; then 
+            echo "SCRAPER=backend/scrappers/kyoboScrapper.js" >> $GITHUB_OUTPUT
+            echo "AUTHOR=backend/scripts/generateAuthor_korea.js" >> $GITHUB_OUTPUT
+          fi
+          if [ "$DAY" -eq 2 ]; then 
+            echo "SCRAPER=backend/scrappers/usScrapper.js" >> $GITHUB_OUTPUT
+            echo "AUTHOR=backend/scripts/generateAuthor_us.js" >> $GITHUB_OUTPUT
+          fi
+          if [ "$DAY" -eq 3 ]; then 
+            echo "SCRAPER=backend/scrappers/japanScrapper.js" >> $GITHUB_OUTPUT
+            echo "AUTHOR=backend/scripts/generateAuthor_japan.js" >> $GITHUB_OUTPUT
+          fi
+          if [ "$DAY" -eq 4 ]; then 
+            echo "SCRAPER=backend/scrappers/ukScrapper.js" >> $GITHUB_OUTPUT
+            echo "AUTHOR=backend/scripts/generateAuthor_uk.js" >> $GITHUB_OUTPUT
+          fi
+          if [ "$DAY" -eq 5 ]; then 
+            echo "SCRAPER=backend/scrappers/chinaScrapper.js" >> $GITHUB_OUTPUT
+            echo "AUTHOR=backend/scripts/generateAuthor_china.js" >> $GITHUB_OUTPUT
+          fi
+          if [ "$DAY" -eq 6 ]; then 
+            echo "SCRAPER=backend/scrappers/taiwanScrapper.js" >> $GITHUB_OUTPUT
+            echo "AUTHOR=backend/scripts/generateAuthor_taiwan.js" >> $GITHUB_OUTPUT
+          fi
+          if [ "$DAY" -eq 7 ]; then 
+            echo "SCRAPER=backend/scrappers/franceScrapper.js" >> $GITHUB_OUTPUT
+            echo "AUTHOR=backend/scripts/generateAuthor_france.js" >> $GITHUB_OUTPUT
+          fi
 
       - name: Run the day-specific script
         run: node ${{ steps.pick.outputs.SCRIPT }}

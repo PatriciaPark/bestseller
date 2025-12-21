@@ -16,13 +16,12 @@ async function fetchPageBooks(browser) {
 
   console.log('📍 Navigating to Amazon ES bestsellers...');
   await page.goto(url, { waitUntil: 'networkidle2' });
-  await sleep(3000); // 더 긴 대기 시간
+  await sleep(3000);
 
   const { books, links } = await page.evaluate(() => {
     const books = [];
     const links = [];
 
-    // 더 넓은 셀렉터로 시도
     const items = document.querySelectorAll('ol li.zg-item-immersion, ol li');
     console.log(`Found ${items.length} items on page`);
 
@@ -31,28 +30,36 @@ async function fetchPageBooks(browser) {
 
       const li = items[i];
 
-      // 다양한 셀렉터 시도
+      // 링크
       const detailHref =
         li.querySelector('div a.a-link-normal')?.href ||
         li.querySelector('a[href*="/dp/"]')?.href ||
         '';
 
+      // 제목
       const title =
         li.querySelector('div a.a-link-normal span div')?.innerText ||
         li.querySelector('.p13n-sc-truncate')?.innerText ||
         li.querySelector('[class*="title"]')?.innerText ||
         '';
 
+      // 이미지
       const image =
         li.querySelector('div.a-section img')?.src ||
         li.querySelector('img[src*="amazon"]')?.src ||
         '';
 
-      const author =
-        li.querySelector('div a.a-size-small div')?.innerText ||
-        li.querySelector('.a-size-small.a-link-child')?.innerText ||
-        li.querySelector('[class*="author"]')?.innerText ||
+      // ✅ 작가 셀렉터 개선 - Amazon ES 구조에 맞춤
+      let author =
+        li.querySelector('a.a-size-small.a-link-child')?.innerText ||
+        li.querySelector('.a-size-small.a-color-base')?.innerText ||
+        li.querySelector('div.a-row.a-size-small span.a-size-small')
+          ?.innerText ||
+        li.querySelector('.p13n-sc-truncate-desktop-type2')?.innerText ||
         '';
+
+      // "de " 접두사 제거 (스페인어 "by" 의미)
+      author = author.replace(/^de\s+/i, '').trim();
 
       if (title && detailHref) {
         books.push({ title, author: author || 'Unknown', image, detailHref });
@@ -67,7 +74,9 @@ async function fetchPageBooks(browser) {
 
   // 디버깅: 첫 3개 책 정보 출력
   books.slice(0, 3).forEach((book, i) => {
-    console.log(`  ${i + 1}. ${book.title.substring(0, 50)}...`);
+    console.log(
+      `  ${i + 1}. ${book.title.substring(0, 50)}... by ${book.author}`,
+    );
   });
 
   await page.close();
@@ -81,6 +90,7 @@ async function fetchBookDetail(browser, link) {
     await sleep(1000);
 
     const data = await detailPage.evaluate(() => {
+      // 책 설명
       const description =
         document
           .querySelector('#bookDescription_feature_div div.a-expander-content')
@@ -93,6 +103,7 @@ async function fetchBookDetail(browser, link) {
           ?.innerText.trim() ||
         '';
 
+      // 리뷰/출판사 정보
       const reviewSection =
         document
           .querySelector('#editorialReviews_feature_div div.a-section')
@@ -102,7 +113,8 @@ async function fetchBookDetail(browser, link) {
           ?.innerText.trim() ||
         '';
 
-      const writerInfo =
+      // ✅ 작가 정보 개선 - "Follow" 및 작가 이름 제거
+      let writerInfo =
         document
           .querySelector(
             'div._about-the-author-card_style_cardContentDiv__FXLPd',
@@ -111,7 +123,30 @@ async function fetchBookDetail(browser, link) {
         document
           .querySelector('[data-feature-name="authorBio"]')
           ?.innerText.trim() ||
+        document.querySelector('#author-profile-card')?.innerText.trim() ||
         '';
+
+      // ✅ "Follow" + 작가 이름 패턴 제거
+      // 예: "Follow\nDan Brown\n\nDan Brown is..." → "Dan Brown is..."
+      if (writerInfo) {
+        // 1. "Follow" 단어 제거
+        writerInfo = writerInfo.replace(/^Follow\s*/i, '');
+
+        // 2. 첫 줄(작가 이름) 제거 - 첫 번째 줄바꿈까지
+        const lines = writerInfo.split('\n').filter(line => line.trim());
+        if (lines.length > 1) {
+          // 첫 줄이 작가 이름이면 제거
+          const firstLine = lines[0].trim();
+          // 작가 이름은 보통 짧고 대문자로 시작
+          if (firstLine.length < 50 && /^[A-Z]/.test(firstLine)) {
+            writerInfo = lines.slice(1).join('\n').trim();
+          }
+        }
+
+        // 3. "Read more about this author" 같은 문구 제거
+        writerInfo = writerInfo.replace(/Read more about .*$/i, '').trim();
+        writerInfo = writerInfo.replace(/Discover more of .*$/i, '').trim();
+      }
 
       return { description, other: reviewSection, writerInfo };
     });
@@ -150,7 +185,7 @@ export default async function spainScrapper() {
   }
 
   console.log(`\n📚 Fetching details for ${books.length} books...`);
-  const concurrency = 3; // 동시성 낮춤 (봇 감지 방지)
+  const concurrency = 3;
 
   for (let i = 0; i < books.length; i += concurrency) {
     const batchBooks = books.slice(i, i + concurrency);
@@ -168,10 +203,13 @@ export default async function spainScrapper() {
       batchBooks[idx].description = data.description;
       batchBooks[idx].other = data.other;
       batchBooks[idx].writerInfo = data.writerInfo;
-      console.log(`${i + idx + 1}. ${batchBooks[idx].title} ✅`);
+      console.log(
+        `${i + idx + 1}. ${batchBooks[idx].title} ✅ (${
+          batchBooks[idx].author
+        })`,
+      );
     });
 
-    // 배치 사이에 대기 (봇 감지 방지)
     if (i + concurrency < books.length) {
       await sleep(2000);
     }

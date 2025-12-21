@@ -26,49 +26,63 @@ import { useLanguage } from './LanguageContext';
 import { useTheme } from './ThemeContext';
 import MyAds from './BannerAd';
 import { BannerAdSize } from 'react-native-google-mobile-ads';
+import koreaAuthors from '../backend/json_results/korea_author.json';
+import usAuthors from '../backend/json_results/us_author.json';
+import japanAuthors from '../backend/json_results/japan_author.json';
+import ukAuthors from '../backend/json_results/uk_author.json';
+import chinaAuthors from '../backend/json_results/china_author.json';
+import taiwanAuthors from '../backend/json_results/taiwan_author.json';
+import franceAuthors from '../backend/json_results/france_author.json';
+import spainAuthors from '../backend/json_results/spain_author.json';
+
+const authorDataMap = {
+  KR: koreaAuthors,
+  US: usAuthors,
+  JP: japanAuthors,
+  UK: ukAuthors,
+  CN: chinaAuthors,
+  TW: taiwanAuthors,
+  FR: franceAuthors,
+  ES: spainAuthors,
+};
 
 // 번역 데이터 (Google Sheets 기반)
-// 참조: https://docs.google.com/spreadsheets/d/1GoeMU5HbM7g2jujoO5vBI6Z1BH_EjUtnVmV9zWAKpHs/edit?gid=0#gid=0
-// Row 29: View on Store
-// Row 30: Author
-// Row 31: About Book
-// Row 32: More Info
 const translations = {
   korean: {
-    viewOnStore: '스토어 방문', // Row 29, Column A
-    author: '저자', // Row 30, Column A
-    aboutBook: '도서 정보', // Row 31, Column A
-    moreInfo: '상세 정보', // Row 32, Column A
+    viewOnStore: '스토어 방문',
+    author: '저자',
+    aboutBook: '도서 정보',
+    moreInfo: '상세 정보',
   },
   english: {
-    viewOnStore: 'View on Store', // Row 29, Column B
-    author: 'Author', // Row 30, Column B
-    aboutBook: 'About Book', // Row 31, Column B
-    moreInfo: 'More Info', // Row 32, Column B
+    viewOnStore: 'View on Store',
+    author: 'Author',
+    aboutBook: 'About Book',
+    moreInfo: 'More Info',
   },
   japanese: {
-    viewOnStore: 'ストアで見る', // Row 29, Column C
-    author: '著者', // Row 30, Column C
-    aboutBook: '書籍情報', // Row 31, Column C
-    moreInfo: '詳細情報', // Row 32, Column C
+    viewOnStore: 'ストアで見る',
+    author: '著者',
+    aboutBook: '書籍情報',
+    moreInfo: '詳細情報',
   },
   chinese: {
-    viewOnStore: '前往商店', // Row 29, Column D
-    author: '作者', // Row 30, Column D
-    aboutBook: '图书信息', // Row 31, Column D
-    moreInfo: '细节', // Row 32, Column D
+    viewOnStore: '前往商店',
+    author: '作者',
+    aboutBook: '图书信息',
+    moreInfo: '细节',
   },
   traditionalChinese: {
-    viewOnStore: '查看店鋪', // Row 29, Column E
-    author: '作者', // Row 30, Column E
-    aboutBook: '關於本書', // Row 31, Column E
-    moreInfo: '更多資訊', // Row 32, Column E
+    viewOnStore: '查看店鋪',
+    author: '作者',
+    aboutBook: '關於本書',
+    moreInfo: '更多資訊',
   },
   french: {
-    viewOnStore: 'Voir en magasin', // Row 29, Column F
-    author: 'auteur', // Row 30, Column F
-    aboutBook: 'Informations sur le livre', // Row 31, Column F
-    moreInfo: "Plus d'informations", // Row 32, Column F
+    viewOnStore: 'Voir en magasin',
+    author: 'auteur',
+    aboutBook: 'Informations sur le livre',
+    moreInfo: "Plus d'informations",
   },
   spanish: {
     viewOnStore: 'Ver en la tienda',
@@ -119,27 +133,23 @@ const COUNTRY_CONFIG = {
 };
 
 export default function BookDetail({ route, navigation }) {
-  // 모든 Hooks를 최상위에 배치 (조건부 호출 금지)
   const { book, language: languageFromRoute } = route.params || {};
-  const { columnHeaders } = useLanguage(); // LanguageContext 사용
+  const { columnHeaders } = useLanguage();
   const { isBookmarked, toggleBookmark } = useBookmark();
   const { colors, isDark } = useTheme();
 
-  // 언어 토글 상태 (route에서 받거나 기본값)
   const [language, setLanguage] = useState(languageFromRoute || 'original');
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('author'); // 기본값을 'author'로 변경
+  const [activeTab, setActiveTab] = useState('author');
   const [appLanguage, setAppLanguage] = useState('English');
   const [wikiModalVisible, setWikiModalVisible] = useState(false);
   const [wikiUrl, setWikiUrl] = useState('');
   const [wikiType, setWikiType] = useState('');
   const [imageModalVisible, setImageModalVisible] = useState(false);
 
-  // 스타일을 동적으로 생성
   const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
-  // book이 없으면 early return (Hooks 호출 후)
   if (!book) {
     return (
       <View style={styles.container}>
@@ -159,23 +169,43 @@ export default function BookDetail({ route, navigation }) {
       </View>
     );
   }
-  // 국가에 따른 Wikipedia 언어 매핑
-  const getCountryWikiLang = country => {
-    const countryLangMap = {
-      KR: 'ko',
-      US: 'en',
-      UK: 'en',
-      JP: 'ja',
-      CN: 'zh',
-      TW: 'zh',
-      FR: 'fr',
-      ES: 'es',
-    };
-    return countryLangMap[country] || 'en';
-  };
 
   const country = book.country || 'US';
   const config = COUNTRY_CONFIG[country] || COUNTRY_CONFIG.US;
+
+  // 앱 언어 설정에 따라 Wikipedia 언어 결정
+  const getWikiLangByAppLanguage = () => {
+    const languageMap = {
+      Korean: 'ko',
+      English: 'en',
+      Japanese: 'ja',
+      Chinese: 'zh',
+      'Traditional Chinese': 'zh',
+      French: 'fr',
+      Spanish: 'es',
+    };
+    return languageMap[appLanguage] || 'en';
+  };
+
+  // 작가 번역된 이름 가져오기 + Wikidata 확인
+  const getAuthorTranslatedName = (authorName, country, targetLang) => {
+    const authorData = authorDataMap[country];
+    if (!authorData) return { name: authorName, hasWikidata: false };
+
+    const authorInfo = authorData.find(a => a.original === authorName);
+    if (!authorInfo) return { name: authorName, hasWikidata: false };
+
+    // source가 'wikidata'가 아니면 Wikipedia 검색 불가
+    if (authorInfo.source !== 'wikidata') {
+      return { name: authorName, hasWikidata: false };
+    }
+
+    // targetLang에 맞는 번역된 이름 가져오기
+    const translatedName =
+      authorInfo[targetLang] || authorInfo.en || authorInfo.original;
+
+    return { name: translatedName, hasWikidata: true };
+  };
 
   // route params에서 language 업데이트
   useEffect(() => {
@@ -199,7 +229,7 @@ export default function BookDetail({ route, navigation }) {
     loadAppLanguage();
   }, []);
 
-  //위키피디아 함수(웹뷰.모달-mary)
+  // 작가 검색 - 앱 언어에 맞는 Wikipedia + 번역된 이름 사용
   const searchAuthor = authorName => {
     if (
       !authorName ||
@@ -209,10 +239,37 @@ export default function BookDetail({ route, navigation }) {
       return;
     }
 
-    // 책의 국가에 맞는 Wikipedia 사용
-    const wikiLang = getCountryWikiLang(country);
+    // 앱 언어에 맞는 Wikipedia 언어
+    const wikiLang = getWikiLangByAppLanguage();
+
+    // 번역된 이름 가져오기
+    const { name: translatedName, hasWikidata } = getAuthorTranslatedName(
+      authorName,
+      country,
+      wikiLang === 'ko'
+        ? 'ko'
+        : wikiLang === 'ja'
+        ? 'ja'
+        : wikiLang === 'zh'
+        ? 'zh'
+        : wikiLang === 'fr'
+        ? 'fr'
+        : wikiLang === 'es'
+        ? 'es'
+        : 'en',
+    );
+
+    // Wikidata에 없으면 검색 안 함
+    if (!hasWikidata) {
+      console.log(
+        `⚠️ Author not in Wikidata: ${authorName} (source: translate_failed or wikidata_not_found)`,
+      );
+      return;
+    }
+
+    // 번역된 이름으로 Wikipedia 검색
     const url = `https://${wikiLang}.wikipedia.org/wiki/${encodeURIComponent(
-      book.author,
+      translatedName,
     )}`;
 
     setWikiUrl(url);
@@ -220,24 +277,8 @@ export default function BookDetail({ route, navigation }) {
     setWikiModalVisible(true);
   };
 
-  const searchTitle = title => {
-    if (!title) {
-      return;
-    }
-
-    // 책의 국가에 맞는 Wikipedia 사용
-    const wikiLang = getCountryWikiLang(country);
-    const url = `https://${wikiLang}.wikipedia.org/wiki/${encodeURIComponent(
-      book.title,
-    )}`;
-
-    setWikiUrl(url);
-    setWikiType('title');
-    setWikiModalVisible(true);
-  };
   // 책 상세 정보 가져오기
   useEffect(() => {
-    // 먼저 book 객체에 이미 상세 정보가 있는지 확인 (캐시 데이터)
     if (
       book.authorInfo ||
       book.publisherReview ||
@@ -255,7 +296,6 @@ export default function BookDetail({ route, navigation }) {
         contents: book.contents || '',
         plot: book.plot || '',
         tableOfContents: book.tableOfContents || '',
-        // 한국어 필드
         authorInfo_kr: book.authorInfo_kr || '',
         description_kr: book.description_kr || '',
         moreInfo_kr: book.moreInfo_kr || '',
@@ -444,7 +484,7 @@ export default function BookDetail({ route, navigation }) {
                   <Text style={styles.placeholderText}>No Image</Text>
                 </View>
               )}
-              {/* View on Store 버튼 - 책 표지 바로 아래 */}
+              {/* View on Store 버튼 */}
               {book.link && (
                 <TouchableOpacity
                   style={styles.viewStoreButton}
@@ -471,22 +511,9 @@ export default function BookDetail({ route, navigation }) {
               )}
             </View>
             <View style={styles.bookInfo}>
-              {/* 현재 언어에 맞는 번역된 제목/작가 표시 */}
-              <TouchableOpacity onPress={() => searchTitle(book.title)}>
-                <Text style={styles.title}>
-                  {language === 'korean' && book.title_kr
-                    ? book.title_kr
-                    : language === 'japanese' && book.title_ja
-                    ? book.title_ja
-                    : language === 'chinese' && book.title_zh
-                    ? book.title_zh
-                    : language === 'french' && book.title_fr
-                    ? book.title_fr
-                    : language === 'spanish' && book.title_es
-                    ? book.title_es
-                    : book.title}
-                </Text>
-              </TouchableOpacity>
+              {/* 제목 */}
+              <Text style={styles.title}>{book.title}</Text>
+              {/* 작가 클릭 - Wikidata 확인 후 클릭 가능 */}
               <TouchableOpacity onPress={() => searchAuthor(book.author)}>
                 <Text style={styles.author}>
                   {language === 'korean' && book.author_kr
@@ -506,7 +533,7 @@ export default function BookDetail({ route, navigation }) {
           </View>
         </View>
 
-        {/* 탭 네비게이션 - Author / About Book / More Info 순서 */}
+        {/* 탭 네비게이션 */}
         <View style={styles.tabNavigation}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'author' && styles.activeTab]}
@@ -560,6 +587,7 @@ export default function BookDetail({ route, navigation }) {
         )}
       </ScrollView>
 
+      {/* Wikipedia 모달 */}
       {wikiModalVisible && (
         <Modal
           visible={wikiModalVisible}
@@ -581,13 +609,32 @@ export default function BookDetail({ route, navigation }) {
                 </TouchableOpacity>
                 <Text style={styles.modalTitle} numberOfLines={1}>
                   {wikiType === 'title'
-                    ? language === 'korean' && book.title_kr
+                    ? // 앱 언어에 따라 번역된 제목 표시
+                      appLanguage === 'Korean' && book.title_kr
                       ? book.title_kr
+                      : appLanguage === 'Japanese' && book.title_ja
+                      ? book.title_ja
+                      : appLanguage === 'Chinese' && book.title_zh
+                      ? book.title_zh
+                      : appLanguage === 'French' && book.title_fr
+                      ? book.title_fr
+                      : appLanguage === 'Spanish' && book.title_es
+                      ? book.title_es
                       : book.title
-                    : language === 'korean' && book.author_kr
+                    : // 작가명도 동일하게
+                    appLanguage === 'Korean' && book.author_kr
                     ? book.author_kr
+                    : appLanguage === 'Japanese' && book.author_ja
+                    ? book.author_ja
+                    : appLanguage === 'Chinese' && book.author_zh
+                    ? book.author_zh
+                    : appLanguage === 'French' && book.author_fr
+                    ? book.author_fr
+                    : appLanguage === 'Spanish' && book.author_es
+                    ? book.author_es
                     : book.author}
                 </Text>
+
                 <View style={{ width: 32 }} />
               </View>
               <WebView
@@ -611,7 +658,6 @@ export default function BookDetail({ route, navigation }) {
                   }
                 }}
                 onMessage={event => {
-                  // JavaScript에서 보낸 메시지 수신
                   if (event.nativeEvent.data === 'PAGE_NOT_FOUND') {
                     setWikiModalVisible(false);
                   }
@@ -623,7 +669,6 @@ export default function BookDetail({ route, navigation }) {
                 )}
                 injectedJavaScript={`
     (function() {
-      // Banner Ad 삽입
       const adHtml = '<div style="width: 100%; height: 50px; background-color: #FFF9E6; display: flex; justify-content: center; align-items: center; border-top: 1px solid #E0E0E0; border-bottom: 1px solid #E0E0E0; position: sticky; top: 0; z-index: 9999;"><span style="color: #999; font-size: 14px; font-weight: 500;">Banner Ad</span></div>';
       
       function insertAd() {
@@ -636,11 +681,8 @@ export default function BookDetail({ route, navigation }) {
         }
       }
       
-      // 404 페이지 감지
       function checkPageNotFound() {
         const bodyText = document.body.innerText || document.body.textContent;
-        
-        // 여러 언어의 "페이지 없음" 메시지 감지
         const notFoundPatterns = [
           'does not have an article',
           'Wikipedia does not have',
@@ -656,7 +698,6 @@ export default function BookDetail({ route, navigation }) {
         );
         
         if (isNotFound) {
-          // React Native로 메시지 전송
           window.ReactNativeWebView.postMessage('PAGE_NOT_FOUND');
         }
       }

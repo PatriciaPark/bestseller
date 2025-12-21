@@ -17,11 +17,14 @@ async function fetchPageBooks(browser) {
     const links = [];
 
     document.querySelectorAll('ol li').forEach(li => {
-      const titleEl = li.querySelector('a.prod_link.line-clamp-2.font-medium.text-black');
+      const titleEl = li.querySelector(
+        'a.prod_link.line-clamp-2.font-medium.text-black',
+      );
       const title = titleEl?.innerText.trim() || '';
       const detailHref = titleEl?.href || '';
       const image = li.querySelector('a.prod_link.relative img')?.src || '';
-      const authorText = li.querySelector('div.line-clamp-2.flex')?.innerText || '';
+      const authorText =
+        li.querySelector('div.line-clamp-2.flex')?.innerText || '';
       const author = authorText.split('·')[0]?.trim() || '';
       const publisher = authorText.split('·')[1]?.trim() || '';
 
@@ -43,9 +46,24 @@ async function fetchBookDetail(browser, link) {
   await detailPage.goto(link, { waitUntil: 'networkidle2' });
 
   const data = await detailPage.evaluate(() => {
-    const description = document.querySelector('#scrollSpyProdInfo div.product_detail_area.book_intro div.intro_bottom > div:last-child')?.innerText.trim() || '';
-    const other = document.querySelector('#scrollSpyProdInfo div.product_detail_area.book_contents div.auto_overflow_wrap div.auto_overflow_contents ul li')?.innerText.trim() || '';
-    const writerInfo = document.querySelector('#scrollSpyProdInfo div.product_detail_area.product_person div.writer_info_box p')?.innerText.trim() || '';
+    const description =
+      document
+        .querySelector(
+          '#scrollSpyProdInfo div.product_detail_area.book_intro div.intro_bottom > div:last-child',
+        )
+        ?.innerText.trim() || '';
+    const other =
+      document
+        .querySelector(
+          '#scrollSpyProdInfo div.product_detail_area.book_contents div.auto_overflow_wrap div.auto_overflow_contents ul li',
+        )
+        ?.innerText.trim() || '';
+    const writerInfo =
+      document
+        .querySelector(
+          '#scrollSpyProdInfo div.product_detail_area.product_person div.writer_info_box p',
+        )
+        ?.innerText.trim() || '';
     return { description, other, writerInfo };
   });
 
@@ -69,11 +87,14 @@ export default async function kyoboScrapper() {
     const batchLinks = links.slice(i, i + concurrency);
 
     const results = await Promise.allSettled(
-      batchLinks.map(link => fetchBookDetail(browser, link))
+      batchLinks.map(link => fetchBookDetail(browser, link)),
     );
 
     results.forEach((res, idx) => {
-      const data = res.status === 'fulfilled' ? res.value : { description: '', other: '', writerInfo: '' }; 
+      const data =
+        res.status === 'fulfilled'
+          ? res.value
+          : { description: '', other: '', writerInfo: '' };
       batchBooks[idx].description = data.description;
       batchBooks[idx].other = data.other;
       batchBooks[idx].writerInfo = data.writerInfo;
@@ -92,18 +113,22 @@ export default async function kyoboScrapper() {
   });
 
   const outputDir = path.join(process.cwd(), 'json_results');
-    // Create folder if it doesn't exist
-    if (!fs.existsSync(outputDir)) {
+  // Create folder if it doesn't exist
+  if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
-    }
+  }
   const resultPath = path.join(outputDir, 'korea.json');
-  fs.writeFileSync(resultPath, JSON.stringify(books.map(toPublicBook), null, 2), 'utf-8');
+  fs.writeFileSync(
+    resultPath,
+    JSON.stringify(books.map(toPublicBook), null, 2),
+    'utf-8',
+  );
 
   console.log(`✅ Crawled ${books.length} books`);
   console.log(`Saved to ${resultPath}`);
-  console.log(`📆 Date ${(Date.now().toString())}`);
+  console.log(`📆 Date ${Date.now().toString()}`);
   console.log(`Done in ${(Date.now() - startTime) / 1000}s`);
-  
+
   await browser.close();
 }
 

@@ -6,6 +6,8 @@
     "ko": "찰리 커크",
     "en": "Charlie Kirk",
     "zh": "查理·柯克",
+    "fr": "Charlie Kirk",
+    "es": "Charlie Kirk",
     "source": "wikidata"
   },
   {
@@ -20,6 +22,8 @@
     "ja": "スヌープ・ドッグ",
     "ko": "스눕 독",
     "zh": "史努比狗狗",
+    "fr": "Snoop Dogg",
+    "es": "Snoop Dogg",
     "source": "wikidata"
   },
   {
@@ -28,6 +32,8 @@
     "ja": "メル・ロビンス",
     "en": "Mel Robbins",
     "zh": "梅爾·羅賓斯",
+    "fr": "Mel Robbins",
+    "es": "Mel Robbins",
     "source": "wikidata"
   },
   {
@@ -36,80 +42,68 @@
     "ja": "デイブ・ピルキー",
     "en": "Dav Pilkey",
     "zh": "戴夫·皮尔奇",
+    "fr": "Dav Pilkey",
+    "es": "Dav Pilkey",
     "source": "wikidata"
   },
   {
     "original": "Jeff Kinney",
-    "qid": "Q311704",
-    "ja": "ジェフ・キニー",
-    "ko": "제프 키니",
-    "zh": "杰夫·金尼",
-    "source": "wikidata"
+    "source": "wikidata_not_found"
   },
   {
     "original": "Publications International Ltd.",
-    "source": "failed"
+    "source": "wikidata_not_found"
   },
   {
     "original": "PI Kids",
-    "source": "failed"
+    "source": "wikidata_not_found"
   },
   {
     "original": "Jack Haynes",
-    "qid": "Q75386283",
-    "en": "Jack Cresswell Haynes",
-    "source": "wikidata"
+    "source": "wikidata_not_found"
   },
   {
     "original": "Stephen J. Ellis",
-    "source": "failed"
+    "source": "wikidata_not_found"
   },
   {
     "original": "Carole P. Roman",
-    "source": "failed"
+    "source": "wikidata_not_found"
   },
   {
     "original": "John Grisham",
-    "source": "failed"
+    "source": "wikidata_not_found"
   },
   {
     "original": "Running Press",
-    "source": "failed"
+    "source": "wikidata_not_found"
   },
   {
     "original": "Dr. Nicole Apelian",
-    "source": "failed"
+    "source": "wikidata_not_found"
   },
   {
     "original": "Sophia Elizabeth",
-    "qid": "Q22917436",
-    "ja": "ソフィア・エリザベス・ド・モーガン",
-    "en": "Sophia Elizabeth De Morgan",
-    "source": "wikidata"
+    "source": "wikidata_not_found"
   },
   {
     "original": "Bill O'Neill",
-    "source": "failed"
+    "source": "wikidata_not_found"
   },
   {
     "original": "Shane Carley",
-    "source": "failed"
+    "source": "wikidata_not_found"
   },
   {
     "original": "John Kennedy",
-    "qid": "Q6250211",
-    "ja": "ジョン・ニーリー・ケネディ",
-    "ko": "존 케네디",
-    "en": "John N. Kennedy",
-    "zh": "約翰·尼利·肯尼迪",
-    "source": "wikidata"
+    "source": "wikidata_not_found"
   },
   {
     "original": "Conor Riordan",
-    "source": "failed"
+    "source": "wikidata_not_found"
   },
   {
     "original": "Dr. Marc Siegel",
-    "source": "failed"
+    "source": "wikidata_not_found"
   }
 ]

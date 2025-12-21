@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { google } from 'googleapis';
 import { GoogleAuth } from 'google-auth-library';
+import 'dotenv/config';
 
 function readBooksJSON(filename) {
   const jsonPath = path.join(process.cwd(), 'json_results', filename);

@@ -7,14 +7,14 @@ function sleep(ms) {
 }
 
 function detectSearchLang(author) {
-  if (/[\u3040-\u30ff]/.test(author)) return 'ja'; // 일본어
-  if (/[\u4e00-\u9fff]/.test(author)) return 'zh'; // 중국어
+  if (/[\u3040-\u30ff]/.test(author)) return 'ja';
+  if (/[\u4e00-\u9fff]/.test(author)) return 'zh';
+  if (/[\uac00-\ud7af]/.test(author)) return 'ko';
   return 'en';
 }
-// Wikidata 검색
+
 async function searchWikidata(name) {
   const lang = detectSearchLang(name);
-
   const searchUrl =
     `https://www.wikidata.org/w/api.php?action=wbsearchentities` +
     `&search=${encodeURIComponent(name)}` +
@@ -23,9 +23,9 @@ async function searchWikidata(name) {
 
   const res = await fetch(searchUrl).then(r => r.json());
   if (!res.search || res.search.length === 0) return null;
-
-  return res.search.map(r => r.id); // 여러 후보 반환
+  return res.search.map(r => r.id);
 }
+
 async function isHuman(qid) {
   const url =
     `https://www.wikidata.org/w/api.php?action=wbgetentities` +
@@ -34,17 +34,15 @@ async function isHuman(qid) {
 
   const res = await fetch(url).then(r => r.json());
   const claims = res.entities[qid]?.claims;
-
   return claims?.P31?.some(c => c.mainsnak.datavalue?.value.id === 'Q5');
 }
 
-// Wikidata 언어별 label
 async function getWikidataLabels(qid) {
   const entityUrl =
     `https://www.wikidata.org/w/api.php?action=wbgetentities` +
     `&ids=${qid}` +
     `&props=labels` +
-    `&languages=ja|ko|en|zh` +
+    `&languages=ja|ko|en|zh|zh-hans|zh-hant|fr|es` +
     `&format=json`;
 
   const res = await fetch(entityUrl).then(r => r.json());
@@ -57,12 +55,14 @@ async function getWikidataLabels(qid) {
     ja: labels.ja?.value,
     ko: labels.ko?.value,
     en: labels.en?.value,
-    zh: labels.zh?.value,
+    zh:
+      labels.zh?.value || labels['zh-hans']?.value || labels['zh-hant']?.value,
+    fr: labels.fr?.value,
+    es: labels.es?.value,
     source: 'wikidata',
   };
 }
 
-// Author 하나 처리
 async function normalizeAuthor(author, fallbackLang) {
   try {
     const qids = await searchWikidata(author);
@@ -80,71 +80,53 @@ async function normalizeAuthor(author, fallbackLang) {
     console.warn('⚠ Wikidata 실패:', author);
   }
 
-  //  JP / CN은 번역 fallback 금지
-  if (fallbackLang === null) {
-    return {
-      original: author,
-      source: 'wikidata_not_found',
-    };
+  if (fallbackLang) {
+    try {
+      const res = await translate(author, { to: fallbackLang });
+      return {
+        original: author,
+        [fallbackLang]: res.text,
+        source: 'translate_api',
+      };
+    } catch {
+      return {
+        original: author,
+        source: 'translate_failed',
+      };
+    }
   }
 
-  // US만 번역 fallback
-  try {
-    const res = await translate(author, { to: fallbackLang });
-    return {
-      original: author,
-      [fallbackLang]: res.text,
-      source: 'translate_api',
-    };
-  } catch {
-    return {
-      original: author,
-      source: 'failed',
-    };
-  }
+  return {
+    original: author,
+    source: 'wikidata_not_found',
+  };
 }
 
-// JSON 하나 처리
-async function processFile(inputFile, outputFile, fallbackLang) {
-  console.log(`\n📘 처리 시작: ${inputFile}`);
+async function processSpainAuthors() {
+  console.log('\n🇪🇸 Spain 작가 처리 시작...');
+
+  const inputFile = '../json_results/spain.json';
+  const outputFile = '../json_results/spain_author.json';
+
+  if (!fs.existsSync(inputFile)) {
+    console.warn(`⚠️ 파일 없음: ${inputFile}`);
+    return;
+  }
 
   const data = JSON.parse(fs.readFileSync(inputFile, 'utf-8'));
-
   const authors = [...new Set(data.map(b => b.author).filter(Boolean))];
 
   const results = [];
 
   for (const author of authors) {
-    const normalized = await normalizeAuthor(author, fallbackLang);
+    const normalized = await normalizeAuthor(author, 'en');
     results.push(normalized);
-    console.log(`✔ ${author}`);
-    await sleep(1200); // ⭐ Wikidata rate limit 방지
+    console.log(`✔ ${author} → ${normalized.source}`);
+    await sleep(1200);
   }
 
   fs.writeFileSync(outputFile, JSON.stringify(results, null, 2));
   console.log(`✅ 저장 완료: ${outputFile}`);
 }
 
-// 실행
-(async () => {
-  // 🇺🇸 US → fallback 허용
-  await processFile(
-    '../json_results/us.json',
-    '../json_results/us_author.json',
-    'ko',
-  );
-
-  // 🇯🇵 Japan → Wiki only
-  await processFile(
-    '../json_results/japan.json',
-    '../json_results/japan_author.json',
-    null,
-  );
-
-  // 🇨🇳 China → Wiki only
-  await processFile(
-    '../json_results/china.json',
-    '../json_results/china_author.json',
-    null,
-  );
-})();
+processSpainAuthors();
